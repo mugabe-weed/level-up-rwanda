@@ -1,0 +1,8 @@
+{
+  "name": "LEVELUP RWANDA",
+  "description": "Play. Learn. Create. Connect. Grow. A community platform for Rwanda offering daily challenges, practical learning, creative expression, community connection, and verified opportunities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
