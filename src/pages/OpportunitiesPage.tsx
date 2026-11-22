@@ -10,7 +10,7 @@ import { PLATFORM_IMAGES } from '../lib/assets';
 import { ResilientImage } from '../components/ResilientImage';
 
 export function OpportunitiesPage() {
-  const { user, databaseConfigured } = useAuth();
+  const { user } = useAuth();
   const { lang, t } = useI18n();
   const [searchParams] = useSearchParams();
 
@@ -21,6 +21,7 @@ export function OpportunitiesPage() {
 
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [formState, setFormState] = useState({
     categoryId: 1,
     opportunityType: 'internship',
@@ -37,7 +38,6 @@ export function OpportunitiesPage() {
   const { data: categories = [] } = useQuery<any[]>({
     queryKey: ['opportunities', 'categories'],
     queryFn: () => apiRequest('/opportunities/categories'),
-    enabled: databaseConfigured,
   });
 
   const { data: opportunities = [], isLoading } = useQuery<any[]>({
@@ -50,17 +50,21 @@ export function OpportunitiesPage() {
       if (verifiedOnly) qs.set('verified', 'true');
       return apiRequest(`/opportunities?${qs.toString()}`);
     },
-    enabled: databaseConfigured,
   });
 
   const handleToggleSave = async (id: number) => {
     if (!user) return;
-    await apiRequest(`/opportunities/${id}/save`, { method: 'POST' });
-    await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    try {
+      await apiRequest(`/opportunities/${id}/save`, { method: 'POST' });
+      await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+    } catch (err) {
+      setSubmitMessage(err instanceof ApiError ? err.message : 'Unable to update saved opportunity');
+    }
   };
 
   const handleSubmitOpportunity = async (e: React.FormEvent) => {
     e.preventDefault();
+    setModalError(null);
     try {
       const res = await apiRequest<{ status: string }>('/opportunities', {
         method: 'POST',
@@ -71,6 +75,18 @@ export function OpportunitiesPage() {
         }),
       });
       setShowSubmitModal(false);
+      setFormState({
+        categoryId: Number(categories[0]?.id || 1),
+        opportunityType: 'internship',
+        title: '',
+        organizationName: '',
+        location: 'Kigali, Rwanda',
+        isRemote: false,
+        summary: '',
+        eligibility: '',
+        applicationUrl: 'https://',
+        deadlineAt: '',
+      });
       setSubmitMessage(
         res.status === 'approved'
           ? 'Opportunity published and verified.'
@@ -78,7 +94,7 @@ export function OpportunitiesPage() {
       );
       await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
     } catch (err) {
-      setSubmitMessage(err instanceof ApiError ? err.message : 'Unable to submit opportunity');
+      setModalError(err instanceof ApiError ? err.message : 'Unable to submit opportunity');
     }
   };
 
@@ -94,7 +110,10 @@ export function OpportunitiesPage() {
             <div>
               <button
                 type="button"
-                onClick={() => setShowSubmitModal(true)}
+                onClick={() => {
+                  setModalError(null);
+                  setShowSubmitModal(true);
+                }}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0B1B3B] hover:bg-[#142D61] text-white text-xs font-semibold"
               >
                 <Plus className="w-4 h-4" aria-hidden="true" />
@@ -194,12 +213,6 @@ export function OpportunitiesPage() {
                         </span>
                       </>
                     )}
-                    {Boolean(opp.is_sample) && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span>{t.common.sampleLabel}</span>
-                      </>
-                    )}
                   </div>
 
                   {user && (
@@ -265,6 +278,11 @@ export function OpportunitiesPage() {
             <h2 className="font-display text-lg font-bold text-[#0B1B3B]">
               {t.opportunities.submitOpp}
             </h2>
+            {modalError && (
+              <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-800">
+                {modalError}
+              </div>
+            )}
             <form onSubmit={handleSubmitOpportunity} className="space-y-3 text-sm">
               <input
                 type="text"

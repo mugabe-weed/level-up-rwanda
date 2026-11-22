@@ -101,16 +101,30 @@ export function ProfilePage() {
   };
 
   const handleAvatarUpload = async (file: File) => {
-    const fd = new FormData();
-    fd.append('avatar', file);
-    await apiRequest('/profile/me/avatar', { method: 'POST', body: fd });
-    await queryClient.invalidateQueries({ queryKey: ['profile', targetUsername] });
-    await refreshAuth();
+    setSaveError(null);
+    setSaveMessage(null);
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      await apiRequest('/profile/me/avatar', { method: 'POST', body: fd });
+      setSaveMessage('Profile photo updated.');
+      await queryClient.invalidateQueries({ queryKey: ['profile', targetUsername] });
+      await refreshAuth();
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Unable to upload avatar');
+    }
   };
 
   const handleUnblock = async (blockedId: number) => {
-    await apiRequest(`/community/users/${blockedId}/block`, { method: 'DELETE' });
-    await queryClient.invalidateQueries({ queryKey: ['profile', targetUsername] });
+    setSaveError(null);
+    setSaveMessage(null);
+    try {
+      await apiRequest(`/community/users/${blockedId}/block`, { method: 'DELETE' });
+      setSaveMessage('User unblocked.');
+      await queryClient.invalidateQueries({ queryKey: ['profile', targetUsername] });
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Unable to unblock user');
+    }
   };
 
   return (
@@ -183,6 +197,7 @@ export function ProfilePage() {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleAvatarUpload(f);
+                    e.target.value = '';
                   }}
                 />
               </label>
@@ -190,6 +205,12 @@ export function ProfilePage() {
           )}
         </div>
       </section>
+
+      {saveError && !editing && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {saveError}
+        </div>
+      )}
 
       {saveMessage && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">

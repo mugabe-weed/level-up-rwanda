@@ -1,10 +1,14 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { UserRole } from '../../shared/schemas.ts';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import { ForbiddenError, NotFoundError } from '../utils/errors.ts';
 import { recordAuditLog } from './auditService.ts';
 
 export async function getAdminOverview() {
+  if (!isDatabaseConfigured()) {
+    return localStore.getAdminOverview();
+  }
   const [usersCount] = await queryRows<RowDataPacket[]>('SELECT COUNT(*) AS cnt FROM users');
   const [challengesCount] = await queryRows<RowDataPacket[]>('SELECT COUNT(*) AS cnt FROM challenges');
   const [submissionsCount] = await queryRows<RowDataPacket[]>(
@@ -44,6 +48,9 @@ export async function getAdminOverview() {
 }
 
 export async function listUsersAdmin(search?: string) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listUsersAdmin(search);
+  }
   const q = search?.trim() ? `%${search.trim()}%` : null;
   const where = q ? 'WHERE u.email LIKE ? OR up.username LIKE ? OR up.display_name LIKE ?' : '';
   const params = q ? [q, q, q] : [];
@@ -67,6 +74,9 @@ export async function updateUserRoleOrStatusAdmin(params: {
   status?: 'active' | 'suspended';
   ipAddress?: string;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateUserRoleOrStatusAdmin(params);
+  }
   if (params.actorUserId === params.targetUserId && params.status === 'suspended') {
     throw new ForbiddenError('You cannot suspend your own administrator account.');
   }
@@ -110,6 +120,9 @@ export async function updateUserRoleOrStatusAdmin(params: {
 }
 
 export async function listAllChallengesAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listAllChallengesAdmin();
+  }
   return queryRows<RowDataPacket[]>(
     `SELECT c.*, cat.name_en AS category_name,
             (SELECT COUNT(*) FROM challenge_questions q WHERE q.challenge_id = c.id) AS question_count
@@ -140,6 +153,9 @@ export async function createChallengeAdmin(
   },
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createChallengeAdmin(actorUserId, data, ipAddress);
+  }
   return withTransaction(async (conn) => {
     const [res] = await conn.execute<any>(
       `INSERT INTO challenges
@@ -195,6 +211,9 @@ export async function addQuestionAdmin(
   },
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.addQuestionAdmin(actorUserId, data, ipAddress);
+  }
   return withTransaction(async (conn) => {
     const [res] = await conn.execute<any>(
       `INSERT INTO challenge_questions
@@ -244,6 +263,9 @@ export async function createCourseAdmin(
   },
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createCourseAdmin(actorUserId, data, ipAddress);
+  }
   return withTransaction(async (conn) => {
     const [res] = await conn.execute<any>(
       `INSERT INTO courses
@@ -284,7 +306,116 @@ export async function createCourseAdmin(
   });
 }
 
+export async function listAllCoursesAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listAllCoursesAdmin();
+  }
+  return queryRows<RowDataPacket[]>(
+    `SELECT c.*, cat.name_en AS category_name,
+            (SELECT COUNT(*) FROM course_lessons cl WHERE cl.course_id = c.id) AS lesson_count
+     FROM courses c
+     INNER JOIN course_categories cat ON cat.id = c.category_id
+     ORDER BY c.created_at DESC`,
+  );
+}
+
+export async function addLessonAdmin(
+  actorUserId: number,
+  data: {
+    courseId: number;
+    titleEn: string;
+    titleRw: string;
+    titleFr: string;
+    contentEn: string;
+    contentRw: string;
+    contentFr: string;
+    durationMinutes: number;
+    xpReward: number;
+    assessmentQuestion?: string;
+    assessmentOptions?: string[];
+    correctOptionIndex?: number;
+    assessmentExplanation?: string;
+  },
+  ipAddress?: string,
+) {
+  if (!isDatabaseConfigured()) {
+    return localStore.addLessonAdmin(actorUserId, data, ipAddress);
+  }
+  return withTransaction(async (conn) => {
+    const [courseRows] = await conn.execute<RowDataPacket[]>(
+      'SELECT id FROM courses WHERE id = ? LIMIT 1',
+      [data.courseId],
+    );
+    if (courseRows.length === 0) {
+      throw new NotFoundError('Course not found.');
+    }
+    let [modRows] = await conn.execute<RowDataPacket[]>(
+      'SELECT id FROM course_modules WHERE course_id = ? ORDER BY sort_order ASC, id ASC LIMIT 1',
+      [data.courseId],
+    );
+    let moduleId: number;
+    if (modRows.length === 0) {
+      const [mRes] = await conn.execute<any>(
+        `INSERT INTO course_modules (course_id, title_en, title_rw, title_fr, sort_order)
+         VALUES (?, 'Module 1: Core Foundations', 'Igice cya 1: Ibanze', 'Module 1 : Fondamentaux', 1)`,
+        [data.courseId],
+      );
+      moduleId = Number(mRes.insertId);
+    } else {
+      moduleId = Number(modRows[0].id);
+    }
+
+    const [[cntRow]] = await conn.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) AS cnt FROM course_lessons WHERE course_id = ?',
+      [data.courseId],
+    );
+    const sortOrder = Number(cntRow?.cnt ?? 0) + 1;
+
+    const assessment =
+      data.assessmentQuestion && data.assessmentOptions && data.assessmentOptions.length >= 2
+        ? JSON.stringify({
+            question: data.assessmentQuestion,
+            options: data.assessmentOptions,
+            correctIndex: data.correctOptionIndex ?? 0,
+            explanation: data.assessmentExplanation || 'Good check!',
+          })
+        : null;
+
+    const [res] = await conn.execute<any>(
+      `INSERT INTO course_lessons
+        (module_id, course_id, title_en, title_rw, title_fr, content_en, content_rw, content_fr, duration_minutes, xp_reward, assessment_question_json, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        moduleId,
+        data.courseId,
+        data.titleEn,
+        data.titleRw,
+        data.titleFr,
+        data.contentEn,
+        data.contentRw,
+        data.contentFr,
+        data.durationMinutes,
+        data.xpReward,
+        assessment,
+        sortOrder,
+      ],
+    );
+    await recordAuditLog({
+      actorUserId,
+      action: 'ADMIN_LESSON_ADDED',
+      targetType: 'course',
+      targetId: data.courseId,
+      ipAddress,
+      conn,
+    });
+    return { id: Number(res.insertId) };
+  });
+}
+
 export async function listModerationQueueAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listModerationQueueAdmin();
+  }
   const reports = await queryRows<RowDataPacket[]>(
     `SELECT r.*, up.username AS reporter_username, up.display_name AS reporter_name
      FROM content_reports r
@@ -309,6 +440,9 @@ export async function moderatePostAdmin(
   status: 'approved' | 'hidden' | 'removed',
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.moderatePostAdmin(actorUserId, postId, status, ipAddress);
+  }
   await withTransaction(async (conn) => {
     await conn.execute('UPDATE creative_posts SET moderation_status = ? WHERE id = ?', [status, postId]);
     await recordAuditLog({
@@ -330,6 +464,9 @@ export async function resolveReportAdmin(
   resolutionNote?: string,
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.resolveReportAdmin(actorUserId, reportId, status, resolutionNote, ipAddress);
+  }
   await withTransaction(async (conn) => {
     await conn.execute(
       'UPDATE content_reports SET status = ?, reviewed_by = ?, resolution_note = ? WHERE id = ?',
@@ -348,6 +485,9 @@ export async function resolveReportAdmin(
 }
 
 export async function listAllOpportunitiesAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listAllOpportunitiesAdmin();
+  }
   return queryRows<RowDataPacket[]>(
     `SELECT o.*, cat.name_en AS category_name
      FROM opportunities o
@@ -365,6 +505,9 @@ export async function updateOpportunityStatusAdmin(
   },
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateOpportunityStatusAdmin(actorUserId, opportunityId, params, ipAddress);
+  }
   await withTransaction(async (conn) => {
     if (params.approvalStatus) {
       await conn.execute(
@@ -391,6 +534,9 @@ export async function updateOpportunityStatusAdmin(
 }
 
 export async function listOrganizationsAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listOrganizationsAdmin();
+  }
   return queryRows<RowDataPacket[]>('SELECT * FROM organizations ORDER BY created_at DESC');
 }
 
@@ -399,6 +545,9 @@ export async function createOrganizationAdmin(
   data: { name: string; orgType: string; websiteUrl?: string; description?: string; verified: boolean },
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createOrganizationAdmin(actorUserId, data, ipAddress);
+  }
   const slug =
     data.name
       .toLowerCase()
@@ -425,6 +574,9 @@ export async function createOrganizationAdmin(
 }
 
 export async function listAnnouncementsAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listAnnouncementsAdmin();
+  }
   return queryRows<RowDataPacket[]>('SELECT * FROM announcements ORDER BY created_at DESC');
 }
 
@@ -442,6 +594,9 @@ export async function createAnnouncementAdmin(
   },
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createAnnouncementAdmin(actorUserId, data, ipAddress);
+  }
   return withTransaction(async (conn) => {
     const [res] = await conn.execute<any>(
       `INSERT INTO announcements (title_en, title_rw, title_fr, body_en, body_rw, body_fr, audience, is_active, created_by)
@@ -471,6 +626,9 @@ export async function createAnnouncementAdmin(
 }
 
 export async function listAuditLogsAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listAuditLogsAdmin();
+  }
   return queryRows<RowDataPacket[]>(
     `SELECT al.*, up.username AS actor_username
      FROM audit_logs al
@@ -481,6 +639,9 @@ export async function listAuditLogsAdmin() {
 }
 
 export async function listSettingsAdmin() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listSettingsAdmin();
+  }
   return queryRows<RowDataPacket[]>('SELECT * FROM platform_settings ORDER BY setting_key ASC');
 }
 
@@ -490,6 +651,9 @@ export async function updateSettingAdmin(
   valueObj: unknown,
   ipAddress?: string,
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateSettingAdmin(actorUserId, key, valueObj, ipAddress);
+  }
   await withTransaction(async (conn) => {
     await conn.execute(
       `INSERT INTO platform_settings (setting_key, setting_value_json, updated_by)

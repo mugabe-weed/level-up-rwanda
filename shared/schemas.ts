@@ -223,6 +223,22 @@ export const adminCreateCourseSchema = z.object({
   status: z.enum(['draft', 'published', 'archived']).default('published'),
 });
 
+export const adminCreateLessonSchema = z.object({
+  courseId: z.number().int().positive(),
+  titleEn: z.string().trim().min(3).max(160),
+  titleRw: z.string().trim().min(3).max(160),
+  titleFr: z.string().trim().min(3).max(160),
+  contentEn: z.string().trim().min(10).max(8000),
+  contentRw: z.string().trim().min(10).max(8000),
+  contentFr: z.string().trim().min(10).max(8000),
+  durationMinutes: z.number().int().min(1).max(240).default(10),
+  xpReward: z.number().int().min(5).max(300).default(30),
+  assessmentQuestion: z.string().trim().max(500).optional(),
+  assessmentOptions: z.array(z.string().trim().min(1).max(300)).max(5).optional(),
+  correctOptionIndex: z.number().int().min(0).max(4).optional(),
+  assessmentExplanation: z.string().trim().max(500).optional(),
+});
+
 export const adminCreateAnnouncementSchema = z.object({
   titleEn: z.string().trim().min(3).max(160),
   titleRw: z.string().trim().min(3).max(160),

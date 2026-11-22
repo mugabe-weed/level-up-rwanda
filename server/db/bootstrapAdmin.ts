@@ -1,6 +1,7 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { hashPassword } from '../utils/crypto.ts';
-import { withTransaction } from './pool.ts';
+import { localStore } from './localStore.ts';
+import { isDatabaseConfigured, withTransaction } from './pool.ts';
 
 export interface BootstrapAdminParams {
   email: string;
@@ -15,6 +16,10 @@ export async function provisionFirstSuperAdmin(params: BootstrapAdminParams): Pr
   email: string;
   username: string;
 }> {
+  if (!isDatabaseConfigured()) {
+    return localStore.provisionFirstSuperAdmin(params);
+  }
+
   const passwordHash = await hashPassword(params.password);
 
   return withTransaction(async (conn) => {

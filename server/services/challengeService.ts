@@ -1,5 +1,6 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.ts';
 import {
   awardXpInTransaction,
@@ -8,6 +9,9 @@ import {
 } from './gamificationService.ts';
 
 export async function listChallengeCategories() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listChallengeCategories();
+  }
   return queryRows<RowDataPacket[]>(
     'SELECT id, slug, name_en, name_rw, name_fr, description_en, description_rw, description_fr FROM challenge_categories WHERE is_active = 1 ORDER BY sort_order ASC',
   );
@@ -20,6 +24,9 @@ export async function listChallenges(params: {
   search?: string;
   userId?: number;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listChallenges(params);
+  }
   const conditions: string[] = ["c.status = 'published'"];
   const values: unknown[] = [];
 
@@ -67,6 +74,9 @@ export async function listChallenges(params: {
 }
 
 export async function getChallengeDetail(slug: string, userId?: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.getChallengeDetail(slug, userId);
+  }
   const rows = await queryRows<RowDataPacket[]>(
     `SELECT
        c.id, c.slug, c.title_en, c.title_rw, c.title_fr,
@@ -183,6 +193,9 @@ export async function submitChallengeAttempt(params: {
   answers: Array<{ questionId: number; selectedOptionIndex: number }>;
   durationSeconds: number;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.submitChallengeAttempt(params, evaluateChallengeAnswers);
+  }
   return withTransaction(async (conn) => {
     const [chRows] = await conn.execute<RowDataPacket[]>(
       "SELECT id, title_en, xp_reward, time_limit_seconds FROM challenges WHERE slug = ? AND status = 'published' LIMIT 1",
@@ -266,6 +279,9 @@ export async function submitChallengeAttempt(params: {
 }
 
 export async function getLeaderboard(period: 'daily' | 'weekly' | 'monthly' | 'all') {
+  if (!isDatabaseConfigured()) {
+    return localStore.getLeaderboard(period);
+  }
   let dateCondition = '';
   if (period === 'daily') {
     dateCondition = 'AND xt.created_at >= CURDATE()';

@@ -1,7 +1,11 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { executeSql, queryRows } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { executeSql, isDatabaseConfigured, queryRows } from '../db/pool.ts';
 
 export async function listNotifications(userId: number, limit = 30) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listNotifications(userId, limit);
+  }
   const rows = await queryRows<RowDataPacket[]>(
     `SELECT id, type, title_text, body_text, link_url, is_read, read_at, created_at
      FROM notifications
@@ -23,6 +27,9 @@ export async function listNotifications(userId: number, limit = 30) {
 }
 
 export async function markNotificationRead(userId: number, notificationId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.markNotificationRead(userId, notificationId);
+  }
   await executeSql(
     'UPDATE notifications SET is_read = 1, read_at = NOW() WHERE id = ? AND user_id = ?',
     [notificationId, userId],
@@ -30,6 +37,9 @@ export async function markNotificationRead(userId: number, notificationId: numbe
 }
 
 export async function markAllNotificationsRead(userId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.markAllNotificationsRead(userId);
+  }
   await executeSql(
     'UPDATE notifications SET is_read = 1, read_at = NOW() WHERE user_id = ? AND is_read = 0',
     [userId],
@@ -37,6 +47,9 @@ export async function markAllNotificationsRead(userId: number) {
 }
 
 export async function getNotificationPreferences(userId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.getNotificationPreferences(userId);
+  }
   const rows = await queryRows<RowDataPacket[]>(
     'SELECT * FROM notification_preferences WHERE user_id = ? LIMIT 1',
     [userId],
@@ -70,6 +83,9 @@ export async function updateNotificationPreferences(
     announcements: boolean;
   },
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateNotificationPreferences(userId, prefs);
+  }
   await executeSql(
     `INSERT INTO notification_preferences
       (user_id, challenge_reminders, learning_updates, community_activity, opportunity_alerts, announcements)

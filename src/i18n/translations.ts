@@ -30,7 +30,6 @@ export const translations = {
       all: 'All',
       back: 'Back',
       verified: 'Verified',
-      sampleLabel: 'Sample Content',
       freeAccess: 'Free Essential Access',
       noResults: 'No matching items found yet.',
       retry: 'Try Again',
@@ -43,10 +42,6 @@ export const translations = {
       report: 'Report',
       close: 'Close',
       skipToContent: 'Skip to main content',
-    },
-    dbNotice: {
-      title: 'MySQL 8 Database Configuration Needed',
-      body: 'The platform server is running, but no MySQL 8 / Aiven connection variables are configured yet. Supply MYSQL_URL or MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, and MYSQL_DATABASE in your environment, then run migrations and seeds.',
     },
     dashboard: {
       heroTitle: 'Learn practical skills, test your knowledge daily, and grow across Rwanda.',
@@ -211,7 +206,6 @@ export const translations = {
       all: 'Byose',
       back: 'Subira inyuma',
       verified: 'Byemejwe',
-      sampleLabel: 'Urugero',
       freeAccess: 'Uburyo bw’ubuntu ku bumenyi bw’ibanze',
       noResults: 'Nta bisubizo bibonetse kuri iyi nshuro.',
       retry: 'Ongera ugerageze',
@@ -224,10 +218,6 @@ export const translations = {
       report: 'Menyesha ikibazo',
       close: 'Funga',
       skipToContent: 'Jya ku by’ingenzi',
-    },
-    dbNotice: {
-      title: 'Igenamiterere rya MySQL 8 Rirakenewe',
-      body: 'Seriveri irakora ariko nta makuru yo guhuza na MySQL 8 / Aiven arashyirwaho. Shiramo MYSQL_URL cyangwa MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD na MYSQL_DATABASE, hanyuma ukore migrations.',
     },
     dashboard: {
       heroTitle: 'Wige ubumenyi ngiro, ugerageze ubuhanga buri munsi, kandi utere imbere mu Rwanda.',
@@ -392,7 +382,6 @@ export const translations = {
       all: 'Tout',
       back: 'Retour',
       verified: 'Vérifié',
-      sampleLabel: 'Contenu Exemple',
       freeAccess: 'Accès Essentiel Gratuit',
       noResults: 'Aucun élément trouvé.',
       retry: 'Réessayer',
@@ -405,10 +394,6 @@ export const translations = {
       report: 'Signaler',
       close: 'Fermer',
       skipToContent: 'Aller au contenu principal',
-    },
-    dbNotice: {
-      title: 'Configuration MySQL 8 Requise',
-      body: 'Le serveur fonctionne, mais la connexion MySQL 8 / Aiven n’est pas encore configurée. Fournissez MYSQL_URL ou MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD et MYSQL_DATABASE puis exécutez les migrations.',
     },
     dashboard: {
       heroTitle: 'Développez des compétences pratiques, relevez des défis et grandissez au Rwanda.',

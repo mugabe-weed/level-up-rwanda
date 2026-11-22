@@ -1,7 +1,8 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { AgeGroup, SupportedLanguage } from '../../shared/schemas.ts';
 import { appConfig } from '../config.ts';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import {
   generateSecureToken,
   generateVerificationCode,
@@ -23,6 +24,9 @@ export async function registerUser(params: {
   district?: string;
   ipAddress?: string;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.registerUser(params);
+  }
   const email = params.email ? params.email.trim().toLowerCase() : null;
   const phone = params.phone ? params.phone.trim() : null;
   const username = params.username.trim().toLowerCase();
@@ -124,6 +128,9 @@ export async function loginUser(params: {
   ipAddress?: string;
   userAgent?: string;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.loginUser(params);
+  }
   const idLower = params.identifier.trim().toLowerCase();
 
   const rows = await queryRows<RowDataPacket[]>(
@@ -211,6 +218,9 @@ export async function loginUser(params: {
 }
 
 export async function logoutSession(sessionId: number, userId: number, ipAddress?: string): Promise<void> {
+  if (!isDatabaseConfigured()) {
+    return localStore.logoutSession(sessionId, userId, ipAddress);
+  }
   await withTransaction(async (conn) => {
     await conn.execute('UPDATE user_sessions SET revoked_at = NOW() WHERE id = ?', [sessionId]);
     await recordAuditLog({
@@ -225,6 +235,9 @@ export async function logoutSession(sessionId: number, userId: number, ipAddress
 }
 
 export async function verifyUserContact(identifier: string, code: string): Promise<void> {
+  if (!isDatabaseConfigured()) {
+    return localStore.verifyUserContact(identifier, code);
+  }
   const idLower = identifier.trim().toLowerCase();
   const codeHash = sha256Hex(code.trim());
 
@@ -262,6 +275,9 @@ export async function verifyUserContact(identifier: string, code: string): Promi
 }
 
 export async function requestPasswordReset(identifier: string, ipAddress?: string) {
+  if (!isDatabaseConfigured()) {
+    return localStore.requestPasswordReset(identifier, ipAddress);
+  }
   const idLower = identifier.trim().toLowerCase();
   const resetToken = generateVerificationCode();
   const resetHash = sha256Hex(resetToken);
@@ -309,6 +325,9 @@ export async function confirmPasswordReset(params: {
   newPassword: string;
   ipAddress?: string;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.confirmPasswordReset(params);
+  }
   const idLower = params.identifier.trim().toLowerCase();
   const tokenHash = sha256Hex(params.token.trim());
   const newPasswordHash = await hashPassword(params.newPassword);
@@ -363,6 +382,9 @@ export async function confirmPasswordReset(params: {
 }
 
 export async function hasAnySuperAdmin(): Promise<boolean> {
+  if (!isDatabaseConfigured()) {
+    return localStore.hasAnySuperAdmin();
+  }
   const rows = await queryRows<RowDataPacket[]>(
     "SELECT id FROM users WHERE role = 'super_admin' LIMIT 1",
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -17,7 +17,7 @@ import { ApiError, apiRequest } from '../lib/api';
 
 export function LoginPage() {
   const { t } = useI18n();
-  const { refreshAuth, superAdminExists } = useAuth();
+  const { refreshAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -110,15 +110,6 @@ export function LoginPage() {
           {t.nav.register}
         </Link>
       </div>
-
-      {!superAdminExists && (
-        <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
-          First-time deployment?{' '}
-          <Link to="/auth/bootstrap-admin" className="text-purple-700 font-medium hover:underline">
-            Provision first super administrator
-          </Link>
-        </div>
-      )}
     </div>
   );
 }
@@ -128,6 +119,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
   const [previewCode, setPreviewCode] = useState<string | null>(null);
+  const [registeredIdentifier, setRegisteredIdentifier] = useState<string>('');
 
   const {
     register,
@@ -152,6 +144,7 @@ export function RegisterPage() {
         },
       );
       if (res.verificationPreviewCode) {
+        setRegisteredIdentifier(values.username || values.email || values.phone || '');
         setPreviewCode(res.verificationPreviewCode);
       } else {
         navigate('/auth/login');
@@ -176,12 +169,12 @@ export function RegisterPage() {
         <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 space-y-2">
           <p className="font-semibold">Account created successfully.</p>
           <p>
-            Development verification code:{' '}
+            Verification code:{' '}
             <span className="font-mono-tabular font-bold">{previewCode}</span>
           </p>
-          <div className="flex gap-3 pt-1">
+          <div className="flex flex-wrap gap-3 pt-1">
             <Link
-              to="/auth/verify-contact"
+              to={`/auth/verify-contact?identifier=${encodeURIComponent(registeredIdentifier)}&code=${encodeURIComponent(previewCode)}`}
               className="px-3 py-1.5 bg-emerald-700 text-white text-xs font-medium rounded-lg"
             >
               Verify Contact Now
@@ -319,6 +312,7 @@ export function RegisterPage() {
 
 export function VerifyContactPage() {
   const { t } = useI18n();
+  const [searchParams] = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -328,6 +322,10 @@ export function VerifyContactPage() {
     formState: { errors, isSubmitting },
   } = useForm<z.infer<typeof verifyContactSchema>>({
     resolver: zodResolver(verifyContactSchema),
+    defaultValues: {
+      identifier: searchParams.get('identifier') || '',
+      code: searchParams.get('code') || '',
+    },
   });
 
   const onSubmit = async (values: z.infer<typeof verifyContactSchema>) => {
@@ -353,8 +351,11 @@ export function VerifyContactPage() {
         </div>
       )}
       {message && (
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          {message}
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 flex items-center justify-between gap-3">
+          <span>{message}</span>
+          <Link to="/auth/login" className="px-3 py-1 bg-emerald-700 text-white text-xs font-semibold rounded-lg shrink-0">
+            {t.nav.signIn}
+          </Link>
         </div>
       )}
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">

@@ -1,5 +1,6 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import { NotFoundError, ValidationError } from '../utils/errors.ts';
 import {
   awardXpInTransaction,
@@ -7,6 +8,9 @@ import {
 } from './gamificationService.ts';
 
 export async function listCourseCategories() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listCourseCategories();
+  }
   return queryRows<RowDataPacket[]>(
     'SELECT id, slug, name_en, name_rw, name_fr, description_en, description_rw, description_fr FROM course_categories WHERE is_active = 1 ORDER BY sort_order ASC',
   );
@@ -18,6 +22,9 @@ export async function listCourses(params: {
   search?: string;
   userId?: number;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listCourses(params);
+  }
   const conditions: string[] = ["c.status = 'published'"];
   const values: unknown[] = [];
 
@@ -58,6 +65,9 @@ export async function listCourses(params: {
 }
 
 export async function getCourseDetail(slug: string, userId?: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.getCourseDetail(slug, userId);
+  }
   const rows = await queryRows<RowDataPacket[]>(
     `SELECT
        c.*, cat.slug AS category_slug, cat.name_en AS category_name_en, cat.name_rw AS category_name_rw, cat.name_fr AS category_name_fr
@@ -134,6 +144,9 @@ export async function getCourseDetail(slug: string, userId?: number) {
 }
 
 export async function enrollInCourse(slug: string, userId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.enrollInCourse(slug, userId);
+  }
   return withTransaction(async (conn) => {
     const [courses] = await conn.execute<RowDataPacket[]>(
       "SELECT id, title_en FROM courses WHERE slug = ? AND status = 'published' LIMIT 1",
@@ -164,6 +177,9 @@ export async function completeLesson(params: {
   userId: number;
   selectedOptionIndex?: number;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.completeLesson(params);
+  }
   return withTransaction(async (conn) => {
     const [courseRows] = await conn.execute<RowDataPacket[]>(
       "SELECT id, title_en, xp_reward FROM courses WHERE slug = ? AND status = 'published' LIMIT 1",

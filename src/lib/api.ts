@@ -67,8 +67,17 @@ export async function apiRequest<T>(
   const payload = await res.json().catch(() => null);
   if (!res.ok || !payload?.ok) {
     const err = payload?.error;
+    let message = err?.message || `Request failed (${res.status})`;
+    if (err?.code === 'VALIDATION_ERROR' && err?.details && typeof err.details === 'object') {
+      const firstFieldError = Object.values(err.details as Record<string, unknown>)
+        .flat()
+        .find((v): v is string => typeof v === 'string' && v.trim().length > 0);
+      if (firstFieldError) {
+        message = firstFieldError;
+      }
+    }
     throw new ApiError(
-      err?.message || `Request failed (${res.status})`,
+      message,
       res.status,
       err?.code || 'API_ERROR',
       err?.details,

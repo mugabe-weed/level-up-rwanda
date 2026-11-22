@@ -1,8 +1,12 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import { NotFoundError } from '../utils/errors.ts';
 
 export async function listOpportunityCategories() {
+  if (!isDatabaseConfigured()) {
+    return localStore.listOpportunityCategories();
+  }
   return queryRows<RowDataPacket[]>(
     'SELECT id, slug, name_en, name_rw, name_fr FROM opportunity_categories ORDER BY sort_order ASC',
   );
@@ -17,6 +21,9 @@ export async function listOpportunities(params: {
   search?: string;
   userId?: number;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listOpportunities(params);
+  }
   const conditions: string[] = ["o.approval_status = 'approved'"];
   const values: unknown[] = [];
 
@@ -79,6 +86,9 @@ export async function submitOpportunity(params: {
   deadlineAt?: string | null;
   autoApprove?: boolean;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.submitOpportunity(params);
+  }
   return withTransaction(async (conn) => {
     const [res] = await conn.execute<any>(
       `INSERT INTO opportunities
@@ -106,6 +116,9 @@ export async function submitOpportunity(params: {
 }
 
 export async function toggleSavedOpportunity(opportunityId: number, userId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.toggleSavedOpportunity(opportunityId, userId);
+  }
   return withTransaction(async (conn) => {
     const [opps] = await conn.execute<RowDataPacket[]>(
       'SELECT id FROM opportunities WHERE id = ? LIMIT 1',

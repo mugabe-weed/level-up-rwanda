@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, BookOpen, CheckCircle2, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -9,7 +9,6 @@ import { PLATFORM_IMAGES } from '../lib/assets';
 import { ResilientImage } from '../components/ResilientImage';
 
 export function LearnPage() {
-  const { databaseConfigured } = useAuth();
   const { lang, t } = useI18n();
   const [categorySlug, setCategorySlug] = useState('');
   const [level, setLevel] = useState('');
@@ -17,7 +16,6 @@ export function LearnPage() {
   const { data: categories = [] } = useQuery<any[]>({
     queryKey: ['courses', 'categories'],
     queryFn: () => apiRequest('/courses/categories'),
-    enabled: databaseConfigured,
   });
 
   const { data: courses = [], isLoading } = useQuery<any[]>({
@@ -28,7 +26,6 @@ export function LearnPage() {
       if (level) qs.set('level', level);
       return apiRequest(`/courses?${qs.toString()}`);
     },
-    enabled: databaseConfigured,
   });
 
   return (
@@ -107,12 +104,6 @@ export function LearnPage() {
                   </span>
                   <span aria-hidden="true">·</span>
                   <span className="capitalize">{course.level}</span>
-                  {Boolean(course.is_sample) && (
-                    <>
-                      <span aria-hidden="true">·</span>
-                      <span>{t.common.sampleLabel}</span>
-                    </>
-                  )}
                 </div>
                 <h2 className="font-display text-lg font-bold text-[#0B1B3B]">
                   {pickLocalizedField(course, 'title', lang)}
@@ -162,11 +153,13 @@ export function LearnPage() {
 
 export function CourseDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const { user, refreshAuth } = useAuth();
   const { lang, t } = useI18n();
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [lessonFeedback, setLessonFeedback] = useState<Record<number, { ok: boolean; text: string }>>({});
   const [enrolling, setEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<any>({
     queryKey: ['course', slug],
@@ -188,10 +181,13 @@ export function CourseDetailPage() {
   const handleEnroll = async () => {
     if (!user) return;
     setEnrolling(true);
+    setEnrollError(null);
     try {
       await apiRequest(`/courses/${slug}/enroll`, { method: 'POST' });
       await queryClient.invalidateQueries({ queryKey: ['course', slug] });
       await queryClient.invalidateQueries({ queryKey: ['courses'] });
+    } catch (err) {
+      setEnrollError(err instanceof ApiError ? err.message : 'Unable to enroll in course');
     } finally {
       setEnrolling(false);
     }
@@ -287,19 +283,30 @@ export function CourseDetailPage() {
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              disabled={enrolling}
-              onClick={handleEnroll}
-              className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
-            >
-              {enrolling ? t.common.loading : t.learn.enroll}
-            </button>
+            <div className="space-y-2">
+              {enrollError && (
+                <p role="alert" className="text-xs text-red-700">
+                  {enrollError}
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={enrolling}
+                onClick={handleEnroll}
+                className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+              >
+                {enrolling ? t.common.loading : t.learn.enroll}
+              </button>
+            </div>
           )
         ) : (
           <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-950 flex items-center justify-between gap-3">
             <span>{t.common.signInRequired}</span>
-            <Link to="/auth/login" className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold">
+            <Link
+              to="/auth/login"
+              state={{ from: location.pathname }}
+              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold"
+            >
               {t.nav.signIn}
             </Link>
           </div>

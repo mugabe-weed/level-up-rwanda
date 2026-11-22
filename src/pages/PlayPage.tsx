@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Clock, Flame, Trophy } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { pickLocalizedField, useI18n } from '../i18n/translations';
 import { apiRequest } from '../lib/api';
 
 export function PlayPage() {
-  const { databaseConfigured } = useAuth();
   const { lang, t } = useI18n();
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
@@ -16,7 +14,6 @@ export function PlayPage() {
   const { data: categories = [] } = useQuery<any[]>({
     queryKey: ['challenges', 'categories'],
     queryFn: () => apiRequest('/challenges/categories'),
-    enabled: databaseConfigured,
   });
 
   const { data: challenges = [], isLoading } = useQuery<any[]>({
@@ -27,13 +24,11 @@ export function PlayPage() {
       if (selectedDifficulty) qs.set('difficulty', selectedDifficulty);
       return apiRequest(`/challenges?${qs.toString()}`);
     },
-    enabled: databaseConfigured,
   });
 
   const { data: leaderboard = [] } = useQuery<any[]>({
     queryKey: ['challenges', 'leaderboard', leaderboardPeriod],
     queryFn: () => apiRequest(`/challenges/leaderboard?period=${leaderboardPeriod}`),
-    enabled: databaseConfigured,
   });
 
   return (
@@ -114,12 +109,6 @@ export function PlayPage() {
                       <span className="capitalize">{ch.challenge_type}</span>
                       <span aria-hidden="true">·</span>
                       <span className="capitalize">{ch.difficulty}</span>
-                      {Boolean(ch.is_sample) && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span>{t.common.sampleLabel}</span>
-                        </>
-                      )}
                     </div>
                     <h2 className="font-display text-lg font-bold text-[#0B1B3B]">
                       {pickLocalizedField(ch, 'title', lang)}

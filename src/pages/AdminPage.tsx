@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { USER_ROLES } from '../../shared/schemas';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/translations';
-import { apiRequest, queryClient } from '../lib/api';
+import { ApiError, apiRequest, queryClient } from '../lib/api';
 
 type AdminTab =
   | 'overview'
@@ -21,6 +21,7 @@ export function AdminPage() {
   const { t } = useI18n();
   const [tab, setTab] = useState<AdminTab>('overview');
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const isFullAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
@@ -39,6 +40,12 @@ export function AdminPage() {
     queryKey: ['admin', 'challenges'],
     queryFn: () => apiRequest('/admin/challenges'),
     enabled: tab === 'challenges',
+  });
+
+  const { data: adminCourses = [] } = useQuery<any[]>({
+    queryKey: ['admin', 'courses'],
+    queryFn: () => apiRequest('/admin/courses'),
+    enabled: tab === 'courses',
   });
 
   const { data: challengeCats = [] } = useQuery<any[]>({
@@ -129,6 +136,21 @@ export function AdminPage() {
     xpReward: 100,
   });
 
+  // Lesson creation state
+  const [newLesson, setNewLesson] = useState({
+    courseId: 0,
+    titleEn: '',
+    contentEn: '',
+    durationMinutes: 10,
+    xpReward: 30,
+    assessmentQuestion: '',
+    optionA: '',
+    optionB: '',
+    optionC: '',
+    correctOptionIndex: 0,
+    assessmentExplanation: '',
+  });
+
   // Announcement creation state
   const [newAnn, setNewAnn] = useState({
     titleEn: '',
@@ -139,6 +161,17 @@ export function AdminPage() {
     bodyFr: '',
     audience: 'all',
   });
+
+  const runAdminAction = async (fn: () => Promise<void>, successMessage?: string) => {
+    setActionError(null);
+    setActionNotice(null);
+    try {
+      await fn();
+      if (successMessage) setActionNotice(successMessage);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to complete action');
+    }
+  };
 
   const tabs: Array<{ id: AdminTab; label: string; visible: boolean }> = [
     { id: 'overview', label: t.admin.overview, visible: true },
@@ -168,7 +201,11 @@ export function AdminPage() {
             <button
               key={tb.id}
               type="button"
-              onClick={() => setTab(tb.id)}
+              onClick={() => {
+                setActionError(null);
+                setActionNotice(null);
+                setTab(tb.id);
+              }}
               className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
                 tab === tb.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
               }`}
@@ -177,6 +214,12 @@ export function AdminPage() {
             </button>
           ))}
       </div>
+
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {actionError}
+        </div>
+      )}
 
       {actionNotice && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
@@ -234,13 +277,15 @@ export function AdminPage() {
                     <select
                       aria-label={`Role for ${u.username}`}
                       value={u.role}
-                      onChange={async (e) => {
-                        await apiRequest(`/admin/users/${u.id}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ role: e.target.value }),
-                        });
-                        setActionNotice(`Updated role for ${u.username}`);
-                        await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+                      onChange={(e) => {
+                        const role = e.target.value;
+                        void runAdminAction(async () => {
+                          await apiRequest(`/admin/users/${u.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ role }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+                        }, `Updated role for ${u.username}`);
                       }}
                       className="px-2 py-1 text-xs border border-slate-300 rounded bg-white"
                     >
@@ -254,14 +299,15 @@ export function AdminPage() {
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={async () => {
+                      onClick={() => {
                         const nextStatus = u.status === 'suspended' ? 'active' : 'suspended';
-                        await apiRequest(`/admin/users/${u.id}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ status: nextStatus }),
-                        });
-                        setActionNotice(`User ${u.username} set to ${nextStatus}`);
-                        await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+                        void runAdminAction(async () => {
+                          await apiRequest(`/admin/users/${u.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ status: nextStatus }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+                        }, `User ${u.username} set to ${nextStatus}`);
                       }}
                       className={`px-2.5 py-1 text-xs font-medium rounded border ${
                         u.status === 'suspended'
@@ -288,18 +334,30 @@ export function AdminPage() {
           <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <h2 className="font-display text-lg font-bold text-[#0B1B3B]">Create Challenge</h2>
             <form
-              onSubmit={async (e) => {
+              onSubmit={(e) => {
                 e.preventDefault();
-                await apiRequest('/admin/challenges', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    ...newCh,
-                    categoryId: Number(newCh.categoryId || challengeCats[0]?.id || 1),
-                    status: 'published',
-                  }),
-                });
-                setActionNotice('Challenge published.');
-                await queryClient.invalidateQueries({ queryKey: ['admin', 'challenges'] });
+                void runAdminAction(async () => {
+                  await apiRequest('/admin/challenges', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      ...newCh,
+                      categoryId: Number(newCh.categoryId || challengeCats[0]?.id || 1),
+                      status: 'published',
+                    }),
+                  });
+                  setNewCh((prev) => ({
+                    ...prev,
+                    slug: '',
+                    titleEn: '',
+                    titleRw: '',
+                    titleFr: '',
+                    descriptionEn: '',
+                    descriptionRw: '',
+                    descriptionFr: '',
+                  }));
+                  await queryClient.invalidateQueries({ queryKey: ['admin', 'challenges'] });
+                  await queryClient.invalidateQueries({ queryKey: ['challenges'] });
+                }, 'Challenge published.');
               }}
               className="space-y-3 text-sm"
             >
@@ -373,30 +431,45 @@ export function AdminPage() {
           <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <h2 className="font-display text-lg font-bold text-[#0B1B3B]">Add Question to Challenge</h2>
             <form
-              onSubmit={async (e) => {
+              onSubmit={(e) => {
                 e.preventDefault();
                 const chId = newQ.challengeId || adminChallenges[0]?.id;
                 if (!chId) return;
-                await apiRequest('/admin/challenges/questions', {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    challengeId: Number(chId),
-                    promptEn: newQ.promptEn,
-                    promptRw: newQ.promptRw || newQ.promptEn,
-                    promptFr: newQ.promptFr || newQ.promptEn,
-                    options: [newQ.optionA, newQ.optionB, newQ.optionC, newQ.optionD].filter(
-                      Boolean,
-                    ),
-                    correctOptionIndex: Number(newQ.correctOptionIndex),
-                    explanationEn: newQ.explanationEn,
-                    explanationRw: newQ.explanationRw || newQ.explanationEn,
-                    explanationFr: newQ.explanationFr || newQ.explanationEn,
-                    pointsWeight: 20,
-                    sortOrder: 1,
-                  }),
-                });
-                setActionNotice('Question added to challenge.');
-                await queryClient.invalidateQueries({ queryKey: ['admin', 'challenges'] });
+                void runAdminAction(async () => {
+                  await apiRequest('/admin/challenges/questions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      challengeId: Number(chId),
+                      promptEn: newQ.promptEn,
+                      promptRw: newQ.promptRw || newQ.promptEn,
+                      promptFr: newQ.promptFr || newQ.promptEn,
+                      options: [newQ.optionA, newQ.optionB, newQ.optionC, newQ.optionD].filter(
+                        Boolean,
+                      ),
+                      correctOptionIndex: Number(newQ.correctOptionIndex),
+                      explanationEn: newQ.explanationEn,
+                      explanationRw: newQ.explanationRw || newQ.explanationEn,
+                      explanationFr: newQ.explanationFr || newQ.explanationEn,
+                      pointsWeight: 20,
+                      sortOrder: 1,
+                    }),
+                  });
+                  setNewQ((prev) => ({
+                    ...prev,
+                    promptEn: '',
+                    promptRw: '',
+                    promptFr: '',
+                    optionA: '',
+                    optionB: '',
+                    optionC: '',
+                    optionD: '',
+                    explanationEn: '',
+                    explanationRw: '',
+                    explanationFr: '',
+                  }));
+                  await queryClient.invalidateQueries({ queryKey: ['admin', 'challenges'] });
+                  await queryClient.invalidateQueries({ queryKey: ['challenges'] });
+                }, 'Question added to challenge.');
               }}
               className="space-y-3 text-sm"
             >
@@ -482,82 +555,277 @@ export function AdminPage() {
         </div>
       )}
 
-      {/* Courses */}
+      {/* Courses & Lessons */}
       {tab === 'courses' && (
-        <section className="max-w-xl bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-          <h2 className="font-display text-lg font-bold text-[#0B1B3B]">Create Learning Course</h2>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await apiRequest('/admin/courses', {
-                method: 'POST',
-                body: JSON.stringify({
-                  ...newCourse,
-                  categoryId: Number(newCourse.categoryId || courseCats[0]?.id || 1),
-                  status: 'published',
-                }),
-              });
-              setActionNotice('Course published.');
-            }}
-            className="space-y-3 text-sm"
-          >
-            <select
-              value={newCourse.categoryId}
-              onChange={(e) => setNewCourse({ ...newCourse, categoryId: Number(e.target.value) })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <h2 className="font-display text-lg font-bold text-[#0B1B3B]">Create Learning Course</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void runAdminAction(async () => {
+                  await apiRequest('/admin/courses', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      ...newCourse,
+                      categoryId: Number(newCourse.categoryId || courseCats[0]?.id || 1),
+                      status: 'published',
+                    }),
+                  });
+                  setNewCourse((prev) => ({
+                    ...prev,
+                    slug: '',
+                    titleEn: '',
+                    titleRw: '',
+                    titleFr: '',
+                    summaryEn: '',
+                    summaryRw: '',
+                    summaryFr: '',
+                  }));
+                  await queryClient.invalidateQueries({ queryKey: ['admin', 'courses'] });
+                  await queryClient.invalidateQueries({ queryKey: ['courses'] });
+                }, 'Course published.');
+              }}
+              className="space-y-3 text-sm"
             >
-              {courseCats.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name_en}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              required
-              placeholder="Slug (e.g. mobile-money-business-accounting)"
-              value={newCourse.slug}
-              onChange={(e) => setNewCourse({ ...newCourse, slug: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-            />
-            <input
-              type="text"
-              required
-              placeholder="Title (English)"
-              value={newCourse.titleEn}
-              onChange={(e) =>
-                setNewCourse({
-                  ...newCourse,
-                  titleEn: e.target.value,
-                  titleRw: newCourse.titleRw || e.target.value,
-                  titleFr: newCourse.titleFr || e.target.value,
-                })
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-            />
-            <textarea
-              rows={3}
-              required
-              placeholder="Course summary (English)"
-              value={newCourse.summaryEn}
-              onChange={(e) =>
-                setNewCourse({
-                  ...newCourse,
-                  summaryEn: e.target.value,
-                  summaryRw: newCourse.summaryRw || e.target.value,
-                  summaryFr: newCourse.summaryFr || e.target.value,
-                })
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold"
+              <select
+                value={newCourse.categoryId}
+                onChange={(e) => setNewCourse({ ...newCourse, categoryId: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+              >
+                {courseCats.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name_en}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                required
+                placeholder="Slug (e.g. mobile-money-business-accounting)"
+                value={newCourse.slug}
+                onChange={(e) => setNewCourse({ ...newCourse, slug: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              />
+              <input
+                type="text"
+                required
+                placeholder="Title (English)"
+                value={newCourse.titleEn}
+                onChange={(e) =>
+                  setNewCourse({
+                    ...newCourse,
+                    titleEn: e.target.value,
+                    titleRw: e.target.value,
+                    titleFr: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              />
+              <textarea
+                rows={3}
+                required
+                placeholder="Course summary (English)"
+                value={newCourse.summaryEn}
+                onChange={(e) =>
+                  setNewCourse({
+                    ...newCourse,
+                    summaryEn: e.target.value,
+                    summaryRw: e.target.value,
+                    summaryFr: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <select
+                  value={newCourse.level}
+                  onChange={(e) => setNewCourse({ ...newCourse, level: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+                <input
+                  type="number"
+                  min={5}
+                  max={2000}
+                  value={newCourse.estimatedMinutes}
+                  onChange={(e) =>
+                    setNewCourse({ ...newCourse, estimatedMinutes: Number(e.target.value) })
+                  }
+                  placeholder="Minutes"
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <input
+                  type="number"
+                  min={20}
+                  max={1000}
+                  value={newCourse.xpReward}
+                  onChange={(e) => setNewCourse({ ...newCourse, xpReward: Number(e.target.value) })}
+                  placeholder="XP"
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold"
+              >
+                Publish Course
+              </button>
+            </form>
+          </section>
+
+          <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+            <h2 className="font-display text-lg font-bold text-[#0B1B3B]">Add Lesson to Course</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const courseId = newLesson.courseId || adminCourses[0]?.id;
+                if (!courseId) return;
+                const options = [newLesson.optionA, newLesson.optionB, newLesson.optionC].filter(
+                  Boolean,
+                );
+                void runAdminAction(async () => {
+                  await apiRequest('/admin/courses/lessons', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      courseId: Number(courseId),
+                      titleEn: newLesson.titleEn,
+                      titleRw: newLesson.titleEn,
+                      titleFr: newLesson.titleEn,
+                      contentEn: newLesson.contentEn,
+                      contentRw: newLesson.contentEn,
+                      contentFr: newLesson.contentEn,
+                      durationMinutes: Number(newLesson.durationMinutes),
+                      xpReward: Number(newLesson.xpReward),
+                      ...(newLesson.assessmentQuestion.trim() && options.length >= 2
+                        ? {
+                            assessmentQuestion: newLesson.assessmentQuestion.trim(),
+                            assessmentOptions: options,
+                            correctOptionIndex: Number(newLesson.correctOptionIndex),
+                            assessmentExplanation:
+                              newLesson.assessmentExplanation.trim() || undefined,
+                          }
+                        : {}),
+                    }),
+                  });
+                  setNewLesson((prev) => ({
+                    ...prev,
+                    titleEn: '',
+                    contentEn: '',
+                    assessmentQuestion: '',
+                    optionA: '',
+                    optionB: '',
+                    optionC: '',
+                    assessmentExplanation: '',
+                  }));
+                  await queryClient.invalidateQueries({ queryKey: ['admin', 'courses'] });
+                  await queryClient.invalidateQueries({ queryKey: ['courses'] });
+                }, 'Lesson added to course.');
+              }}
+              className="space-y-3 text-sm"
             >
-              Publish Course
-            </button>
-          </form>
-        </section>
+              <select
+                value={newLesson.courseId || adminCourses[0]?.id || ''}
+                onChange={(e) => setNewLesson({ ...newLesson, courseId: Number(e.target.value) })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+              >
+                {adminCourses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title_en} ({c.lesson_count ?? 0} lessons)
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                required
+                placeholder="Lesson title"
+                value={newLesson.titleEn}
+                onChange={(e) => setNewLesson({ ...newLesson, titleEn: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              />
+              <textarea
+                rows={4}
+                required
+                placeholder="Lesson content"
+                value={newLesson.contentEn}
+                onChange={(e) => setNewLesson({ ...newLesson, contentEn: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={240}
+                  value={newLesson.durationMinutes}
+                  onChange={(e) =>
+                    setNewLesson({ ...newLesson, durationMinutes: Number(e.target.value) })
+                  }
+                  placeholder="Duration (min)"
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <input
+                  type="number"
+                  min={5}
+                  max={300}
+                  value={newLesson.xpReward}
+                  onChange={(e) => setNewLesson({ ...newLesson, xpReward: Number(e.target.value) })}
+                  placeholder="XP reward"
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Quick check question (optional)"
+                value={newLesson.assessmentQuestion}
+                onChange={(e) => setNewLesson({ ...newLesson, assessmentQuestion: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  placeholder="Option 1"
+                  value={newLesson.optionA}
+                  onChange={(e) => setNewLesson({ ...newLesson, optionA: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <input
+                  type="text"
+                  placeholder="Option 2"
+                  value={newLesson.optionB}
+                  onChange={(e) => setNewLesson({ ...newLesson, optionB: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+                <input
+                  type="text"
+                  placeholder="Option 3"
+                  value={newLesson.optionC}
+                  onChange={(e) => setNewLesson({ ...newLesson, optionC: e.target.value })}
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+              <select
+                value={newLesson.correctOptionIndex}
+                onChange={(e) =>
+                  setNewLesson({ ...newLesson, correctOptionIndex: Number(e.target.value) })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+              >
+                <option value={0}>Correct Option: 1</option>
+                <option value={1}>Correct Option: 2</option>
+                <option value={2}>Correct Option: 3</option>
+              </select>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#0B1B3B] text-white rounded-lg text-xs font-semibold"
+              >
+                Add Lesson
+              </button>
+            </form>
+          </section>
+        </div>
       )}
 
       {/* Moderation */}
@@ -579,12 +847,14 @@ export function AdminPage() {
                         <button
                           key={st}
                           type="button"
-                          onClick={async () => {
-                            await apiRequest(`/admin/moderation/reports/${r.id}`, {
-                              method: 'PATCH',
-                              body: JSON.stringify({ status: st }),
-                            });
-                            await queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+                          onClick={() => {
+                            void runAdminAction(async () => {
+                              await apiRequest(`/admin/moderation/reports/${r.id}`, {
+                                method: 'PATCH',
+                                body: JSON.stringify({ status: st }),
+                              });
+                              await queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+                            }, `Report #${r.id} marked ${st}.`);
                           }}
                           className="px-2.5 py-1 text-xs border border-slate-200 rounded hover:bg-slate-50"
                         >
@@ -612,12 +882,14 @@ export function AdminPage() {
                   <div className="flex gap-1.5 shrink-0">
                     <button
                       type="button"
-                      onClick={async () => {
-                        await apiRequest(`/admin/moderation/posts/${p.id}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ status: 'approved' }),
-                        });
-                        await queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+                      onClick={() => {
+                        void runAdminAction(async () => {
+                          await apiRequest(`/admin/moderation/posts/${p.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ status: 'approved' }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+                        }, 'Post approved.');
                       }}
                       className="px-2 py-1 text-xs border border-slate-200 rounded"
                     >
@@ -625,12 +897,14 @@ export function AdminPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        await apiRequest(`/admin/moderation/posts/${p.id}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ status: 'hidden' }),
-                        });
-                        await queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+                      onClick={() => {
+                        void runAdminAction(async () => {
+                          await apiRequest(`/admin/moderation/posts/${p.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ status: 'hidden' }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['admin', 'moderation'] });
+                        }, 'Post hidden.');
                       }}
                       className="px-2 py-1 text-xs border border-red-200 text-red-700 rounded"
                     >
@@ -668,12 +942,15 @@ export function AdminPage() {
                   <td className="px-4 py-3 text-right space-x-2">
                     <button
                       type="button"
-                      onClick={async () => {
-                        await apiRequest(`/admin/opportunities/${o.id}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ approvalStatus: 'approved', verifiedStatus: 'verified' }),
-                        });
-                        await queryClient.invalidateQueries({ queryKey: ['admin', 'opportunities'] });
+                      onClick={() => {
+                        void runAdminAction(async () => {
+                          await apiRequest(`/admin/opportunities/${o.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ approvalStatus: 'approved', verifiedStatus: 'verified' }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['admin', 'opportunities'] });
+                          await queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+                        }, 'Opportunity approved & verified.');
                       }}
                       className="px-2.5 py-1 text-xs bg-emerald-600 text-white rounded"
                     >
@@ -681,12 +958,14 @@ export function AdminPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        await apiRequest(`/admin/opportunities/${o.id}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ approvalStatus: 'rejected' }),
-                        });
-                        await queryClient.invalidateQueries({ queryKey: ['admin', 'opportunities'] });
+                      onClick={() => {
+                        void runAdminAction(async () => {
+                          await apiRequest(`/admin/opportunities/${o.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ approvalStatus: 'rejected' }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['admin', 'opportunities'] });
+                        }, 'Opportunity rejected.');
                       }}
                       className="px-2.5 py-1 text-xs border border-red-200 text-red-700 rounded"
                     >
@@ -704,21 +983,32 @@ export function AdminPage() {
       {tab === 'announcements' && isFullAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <form
-            onSubmit={async (e) => {
+            onSubmit={(e) => {
               e.preventDefault();
-              await apiRequest('/admin/announcements', {
-                method: 'POST',
-                body: JSON.stringify({
-                  ...newAnn,
-                  titleRw: newAnn.titleRw || newAnn.titleEn,
-                  titleFr: newAnn.titleFr || newAnn.titleEn,
-                  bodyRw: newAnn.bodyRw || newAnn.bodyEn,
-                  bodyFr: newAnn.bodyFr || newAnn.bodyEn,
-                  isActive: true,
-                }),
-              });
-              setActionNotice('Announcement published.');
-              await queryClient.invalidateQueries({ queryKey: ['admin', 'announcements'] });
+              void runAdminAction(async () => {
+                await apiRequest('/admin/announcements', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    ...newAnn,
+                    titleRw: newAnn.titleRw || newAnn.titleEn,
+                    titleFr: newAnn.titleFr || newAnn.titleEn,
+                    bodyRw: newAnn.bodyRw || newAnn.bodyEn,
+                    bodyFr: newAnn.bodyFr || newAnn.bodyEn,
+                    isActive: true,
+                  }),
+                });
+                setNewAnn((prev) => ({
+                  ...prev,
+                  titleEn: '',
+                  titleRw: '',
+                  titleFr: '',
+                  bodyEn: '',
+                  bodyRw: '',
+                  bodyFr: '',
+                }));
+                await queryClient.invalidateQueries({ queryKey: ['admin', 'announcements'] });
+                await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+              }, 'Announcement published.');
             }}
             className="bg-white border border-slate-200 rounded-xl p-6 space-y-3 text-sm"
           >

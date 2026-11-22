@@ -1,5 +1,6 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import { ConflictError, ForbiddenError, NotFoundError } from '../utils/errors.ts';
 import {
   awardXpInTransaction,
@@ -15,6 +16,9 @@ export async function listPosts(params: {
   limit?: number;
   offset?: number;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listPosts(params);
+  }
   const conditions: string[] = ["p.moderation_status = 'approved'"];
   const values: unknown[] = [];
 
@@ -80,6 +84,9 @@ export async function createPost(params: {
   mediaUrl?: string | null;
   mediaMime?: string | null;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createPost(params);
+  }
   return withTransaction(async (conn) => {
     if (params.groupId) {
       const [gRows] = await conn.execute<RowDataPacket[]>(
@@ -134,6 +141,9 @@ export async function togglePostReaction(params: {
   userId: number;
   reactionType: 'like' | 'celebrate' | 'helpful';
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.togglePostReaction(params);
+  }
   return withTransaction(async (conn) => {
     const [posts] = await conn.execute<RowDataPacket[]>(
       "SELECT id FROM creative_posts WHERE id = ? AND moderation_status = 'approved' LIMIT 1",
@@ -180,6 +190,9 @@ export async function togglePostReaction(params: {
 }
 
 export async function listComments(postId: number, viewerUserId?: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listComments(postId, viewerUserId);
+  }
   const blockFilter = viewerUserId
     ? 'AND c.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = ?)'
     : '';
@@ -197,6 +210,9 @@ export async function listComments(postId: number, viewerUserId?: number) {
 }
 
 export async function addComment(params: { postId: number; userId: number; body: string }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.addComment(params);
+  }
   return withTransaction(async (conn) => {
     const [posts] = await conn.execute<RowDataPacket[]>(
       "SELECT id, user_id, title FROM creative_posts WHERE id = ? AND moderation_status = 'approved' LIMIT 1",
@@ -233,6 +249,9 @@ export async function addComment(params: { postId: number; userId: number; body:
 }
 
 export async function listGroups(viewerUserId?: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.listGroups(viewerUserId);
+  }
   const memberJoin = viewerUserId
     ? 'LEFT JOIN group_memberships gm ON gm.group_id = g.id AND gm.user_id = ?'
     : '';
@@ -254,6 +273,9 @@ export async function createGroup(params: {
   category: string;
   isPrivate: boolean;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createGroup(params);
+  }
   const baseSlug = params.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -277,6 +299,9 @@ export async function createGroup(params: {
 }
 
 export async function toggleGroupMembership(groupId: number, userId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.toggleGroupMembership(groupId, userId);
+  }
   return withTransaction(async (conn) => {
     const [gRows] = await conn.execute<RowDataPacket[]>(
       "SELECT id FROM community_groups WHERE id = ? AND status = 'active' LIMIT 1",
@@ -317,6 +342,9 @@ export async function toggleGroupMembership(groupId: number, userId: number) {
 }
 
 export async function toggleFollowUser(followerId: number, targetUserId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.toggleFollowUser(followerId, targetUserId);
+  }
   if (followerId === targetUserId) {
     throw new ForbiddenError('You cannot follow yourself.');
   }
@@ -338,6 +366,9 @@ export async function toggleFollowUser(followerId: number, targetUserId: number)
 }
 
 export async function blockUser(blockerId: number, blockedId: number, reason?: string) {
+  if (!isDatabaseConfigured()) {
+    return localStore.blockUser(blockerId, blockedId, reason);
+  }
   if (blockerId === blockedId) {
     throw new ForbiddenError('You cannot block yourself.');
   }
@@ -354,6 +385,9 @@ export async function blockUser(blockerId: number, blockedId: number, reason?: s
 }
 
 export async function unblockUser(blockerId: number, blockedId: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.unblockUser(blockerId, blockedId);
+  }
   await queryRows('DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?', [
     blockerId,
     blockedId,
@@ -367,6 +401,9 @@ export async function createContentReport(params: {
   reason: string;
   details?: string;
 }) {
+  if (!isDatabaseConfigured()) {
+    return localStore.createContentReport(params);
+  }
   return withTransaction(async (conn) => {
     const [dup] = await conn.execute<RowDataPacket[]>(
       "SELECT id FROM content_reports WHERE reporter_id = ? AND target_type = ? AND target_id = ? AND status IN ('open', 'reviewing') LIMIT 1",

@@ -25,13 +25,12 @@ interface DashboardData {
 }
 
 export function DashboardPage() {
-  const { user, databaseConfigured } = useAuth();
+  const { user } = useAuth();
   const { lang, t } = useI18n();
 
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
     queryFn: () => apiRequest<DashboardData>('/dashboard'),
-    enabled: databaseConfigured,
   });
 
   return (
@@ -166,9 +165,8 @@ export function DashboardPage() {
         </section>
       )}
 
-      {/* Daily Featured Challenge + Unlocked Achievements */}
-      {databaseConfigured && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Daily Featured Challenge + Unlocked Achievements / Community Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <section className="lg:col-span-7 bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col">
             <div className="h-44 overflow-hidden">
               <ResilientImage
@@ -225,9 +223,9 @@ export function DashboardPage() {
           <section className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-semibold text-[#0B1B3B]">
-                {user ? t.dashboard.achievements : t.dashboard.recommendedCourses}
+                {user ? t.dashboard.achievements : t.dashboard.communityActivity}
               </h2>
-              <Link to={user ? '/profile' : '/learn'} className="text-xs font-medium text-blue-600 hover:underline">
+              <Link to={user ? '/profile' : '/connect'} className="text-xs font-medium text-blue-600 hover:underline">
                 {t.common.all}
               </Link>
             </div>
@@ -259,30 +257,32 @@ export function DashboardPage() {
                   </Link>
                 </div>
               )
-            ) : (
+            ) : data?.recentCommunityActivity && data.recentCommunityActivity.length > 0 ? (
               <ul className="divide-y divide-slate-100">
-                {(data?.recommendedCourses || []).map((course) => (
-                  <li key={course.id} className="py-3">
-                    <Link to={`/learn/${course.slug}`} className="group block">
-                      <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">
-                        {pickLocalizedField(course, 'title', lang)}
+                {data.recentCommunityActivity.map((item) => (
+                  <li key={item.id} className="py-3">
+                    <Link
+                      to={item.post_type === 'create_showcase' ? '/create' : '/connect'}
+                      className="group block"
+                    >
+                      <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600 truncate">
+                        {item.title || item.author_name}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
-                        {course.level} · {course.estimated_minutes} {t.common.minutes} · +
-                        {course.xp_reward} {t.common.xpLabel}
+                        {item.author_name} · <span className="capitalize">{item.post_type}</span>
                       </p>
                     </Link>
                   </li>
                 ))}
               </ul>
+            ) : (
+              <p className="text-sm text-slate-500 py-4">{t.common.noResults}</p>
             )}
           </section>
         </div>
-      )}
 
       {/* Learning Recommendations & Verified Opportunities */}
-      {databaseConfigured && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-semibold text-[#0B1B3B]">
@@ -347,8 +347,7 @@ export function DashboardPage() {
                 )}
             </div>
           </section>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

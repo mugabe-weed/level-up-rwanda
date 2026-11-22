@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Flag, Heart, MessageSquare, Send, Upload } from 'lucide-react';
+import { Flag, Heart, MessageSquare, Send, Upload, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/translations';
 import { ApiError, apiRequest, queryClient } from '../lib/api';
@@ -18,14 +18,17 @@ const CREATIVE_CATEGORIES = [
 ];
 
 export function CreatePage() {
-  const { user, databaseConfigured, refreshAuth } = useAuth();
+  const { user, refreshAuth } = useAuth();
+  const location = useLocation();
   const { t } = useI18n();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [categoryFilter, setCategoryFilter] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(CREATIVE_CATEGORIES[0]);
   const [body, setBody] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +38,16 @@ export function CreatePage() {
   const [reportReason, setReportReason] = useState('spam');
   const [reportMessage, setReportMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
   const { data: posts = [], isLoading } = useQuery<any[]>({
     queryKey: ['community', 'posts', 'create_showcase', categoryFilter],
     queryFn: () => {
@@ -42,7 +55,6 @@ export function CreatePage() {
       if (categoryFilter) qs.set('category', categoryFilter);
       return apiRequest(`/community/posts?${qs.toString()}`);
     },
-    enabled: databaseConfigured,
   });
 
   const { data: comments = [] } = useQuery<any[]>({
@@ -75,6 +87,7 @@ export function CreatePage() {
       setTitle('');
       setBody('');
       setImageFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
       await refreshAuth();
     } catch (err) {
@@ -86,23 +99,31 @@ export function CreatePage() {
 
   const handleLike = async (postId: number) => {
     if (!user) return;
-    await apiRequest(`/community/posts/${postId}/react`, {
-      method: 'POST',
-      body: JSON.stringify({ reactionType: 'like' }),
-    });
-    await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    try {
+      await apiRequest(`/community/posts/${postId}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ reactionType: 'like' }),
+      });
+      await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    } catch (err) {
+      setReportMessage(err instanceof ApiError ? err.message : 'Unable to update reaction');
+    }
   };
 
   const handleAddComment = async (e: React.FormEvent, postId: number) => {
     e.preventDefault();
     if (!user || !commentText.trim()) return;
-    await apiRequest(`/community/posts/${postId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ body: commentText }),
-    });
-    setCommentText('');
-    await queryClient.invalidateQueries({ queryKey: ['community', 'comments', postId] });
-    await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    try {
+      await apiRequest(`/community/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body: commentText }),
+      });
+      setCommentText('');
+      await queryClient.invalidateQueries({ queryKey: ['community', 'comments', postId] });
+      await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    } catch (err) {
+      setReportMessage(err instanceof ApiError ? err.message : 'Unable to post comment');
+    }
   };
 
   const handleReportSubmit = async (e: React.FormEvent) => {
@@ -158,6 +179,7 @@ export function CreatePage() {
               <p>{t.common.signInRequired}</p>
               <Link
                 to="/auth/login"
+                state={{ from: location.pathname }}
                 className="inline-block px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold"
               >
                 {t.nav.signIn}
@@ -225,6 +247,7 @@ export function CreatePage() {
                   <Upload className="w-4 h-4 text-blue-600" aria-hidden="true" />
                   <span className="truncate">{imageFile ? imageFile.name : 'Choose image file...'}</span>
                   <input
+                    ref={fileInputRef}
                     id="create-image"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -232,6 +255,22 @@ export function CreatePage() {
                     className="sr-only"
                   />
                 </label>
+                {imagePreviewUrl && (
+                  <div className="mt-2 relative rounded-lg overflow-hidden border border-slate-200 max-h-44">
+                    <img src={imagePreviewUrl} alt="Selected upload preview" className="w-full h-40 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      aria-label="Remove image"
+                      className="absolute top-2 right-2 p-1 rounded-full bg-slate-900/75 text-white hover:bg-slate-900"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button

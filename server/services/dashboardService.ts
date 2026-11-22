@@ -1,11 +1,15 @@
 import { RowDataPacket } from 'mysql2/promise';
-import { queryRows } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows } from '../db/pool.ts';
 import { listChallenges } from './challengeService.ts';
 import { listCourses } from './learnService.ts';
 import { listOpportunities } from './opportunityService.ts';
 import { listPosts } from './communityService.ts';
 
 export async function getUnifiedDashboard(userId?: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.getUnifiedDashboard(userId);
+  }
   const [challenges, courses, posts, opportunities, announcements] = await Promise.all([
     listChallenges({ userId }),
     listCourses({ userId }),

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Flag, Heart, MessageSquare, Send, ShieldBan, UserPlus, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/translations';
-import { apiRequest, queryClient } from '../lib/api';
+import { ApiError, apiRequest, queryClient } from '../lib/api';
 
 export function ConnectPage() {
-  const { user, databaseConfigured } = useAuth();
+  const { user } = useAuth();
+  const location = useLocation();
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<'feed' | 'groups'>('feed');
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -21,11 +22,11 @@ export function ConnectPage() {
   const [openCommentsId, setOpenCommentsId] = useState<number | null>(null);
   const [commentText, setCommentText] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data: groups = [] } = useQuery<any[]>({
     queryKey: ['community', 'groups'],
     queryFn: () => apiRequest('/community/groups'),
-    enabled: databaseConfigured,
   });
 
   const { data: posts = [] } = useQuery<any[]>({
@@ -35,7 +36,6 @@ export function ConnectPage() {
       if (selectedGroupId) qs.set('groupId', String(selectedGroupId));
       return apiRequest(`/community/posts?${qs.toString()}`);
     },
-    enabled: databaseConfigured,
   });
 
   const { data: comments = [] } = useQuery<any[]>({
@@ -44,69 +44,102 @@ export function ConnectPage() {
     enabled: Boolean(openCommentsId),
   });
 
+  const selectedGroup = groups.find((g) => Number(g.id) === Number(selectedGroupId));
+
   const handleCreateDiscussion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    await apiRequest('/community/posts', {
-      method: 'POST',
-      body: JSON.stringify({
-        postType: 'discussion',
-        category: 'Community Discussion',
-        title: postTitle,
-        body: postBody,
-        groupId: selectedGroupId,
-      }),
-    });
-    setPostTitle('');
-    setPostBody('');
-    await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    setActionError(null);
+    try {
+      await apiRequest('/community/posts', {
+        method: 'POST',
+        body: JSON.stringify({
+          postType: 'discussion',
+          category: 'Community Discussion',
+          title: postTitle,
+          body: postBody,
+          groupId: selectedGroupId,
+        }),
+      });
+      setPostTitle('');
+      setPostBody('');
+      await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to publish discussion');
+    }
   };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    await apiRequest('/community/groups', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: groupName,
-        description: groupDesc,
-        category: groupCategory,
-        isPrivate: false,
-      }),
-    });
-    setGroupName('');
-    setGroupDesc('');
-    await queryClient.invalidateQueries({ queryKey: ['community', 'groups'] });
+    setActionError(null);
+    try {
+      await apiRequest('/community/groups', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: groupName,
+          description: groupDesc,
+          category: groupCategory,
+          isPrivate: false,
+        }),
+      });
+      setGroupName('');
+      setGroupDesc('');
+      setFeedback('Community group created.');
+      await queryClient.invalidateQueries({ queryKey: ['community', 'groups'] });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to create group');
+    }
   };
 
   const handleToggleGroup = async (groupId: number) => {
     if (!user) return;
-    await apiRequest(`/community/groups/${groupId}/toggle-join`, { method: 'POST' });
-    await queryClient.invalidateQueries({ queryKey: ['community', 'groups'] });
+    setActionError(null);
+    try {
+      await apiRequest(`/community/groups/${groupId}/toggle-join`, { method: 'POST' });
+      await queryClient.invalidateQueries({ queryKey: ['community', 'groups'] });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to update group membership');
+    }
   };
 
   const handleFollow = async (targetUserId: number) => {
     if (!user) return;
-    const res = await apiRequest<{ following: boolean }>(`/community/users/${targetUserId}/follow`, {
-      method: 'POST',
-    });
-    setFeedback(res.following ? 'Following user.' : 'Unfollowed user.');
+    setActionError(null);
+    try {
+      const res = await apiRequest<{ following: boolean }>(`/community/users/${targetUserId}/follow`, {
+        method: 'POST',
+      });
+      setFeedback(res.following ? 'Following user.' : 'Unfollowed user.');
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to update follow state');
+    }
   };
 
   const handleBlock = async (targetUserId: number) => {
     if (!user) return;
-    await apiRequest(`/community/users/${targetUserId}/block`, { method: 'POST' });
-    setFeedback('User blocked. Their posts and comments are now hidden from your feed.');
-    await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    setActionError(null);
+    try {
+      await apiRequest(`/community/users/${targetUserId}/block`, { method: 'POST' });
+      setFeedback('User blocked. Their posts and comments are now hidden from your feed.');
+      await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to block user');
+    }
   };
 
   const handleReport = async (postId: number) => {
     if (!user) return;
-    await apiRequest('/community/reports', {
-      method: 'POST',
-      body: JSON.stringify({ targetType: 'post', targetId: postId, reason: 'other' }),
-    });
-    setFeedback('Reported to moderators.');
+    setActionError(null);
+    try {
+      await apiRequest('/community/reports', {
+        method: 'POST',
+        body: JSON.stringify({ targetType: 'post', targetId: postId, reason: 'other' }),
+      });
+      setFeedback('Reported to moderators.');
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Unable to submit report');
+    }
   };
 
   return (
@@ -140,6 +173,12 @@ export function ConnectPage() {
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {actionError}
+        </div>
+      )}
 
       {feedback && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
@@ -200,7 +239,16 @@ export function ConnectPage() {
               {t.connect.createGroup}
             </h2>
             {!user ? (
-              <p className="text-sm text-slate-600">{t.common.signInRequired}</p>
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">{t.common.signInRequired}</p>
+                <Link
+                  to="/auth/login"
+                  state={{ from: location.pathname }}
+                  className="inline-block px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg"
+                >
+                  {t.nav.signIn}
+                </Link>
+              </div>
             ) : (
               <form onSubmit={handleCreateGroup} className="space-y-3">
                 <input
@@ -242,12 +290,14 @@ export function ConnectPage() {
           <section className="lg:col-span-4 bg-white border border-slate-200 rounded-xl p-5 space-y-4">
             <h2 className="font-display text-lg font-bold text-[#0B1B3B]">Start a Discussion</h2>
             {selectedGroupId && (
-              <div className="text-xs text-blue-700 flex items-center justify-between">
-                <span>Posting in selected group</span>
+              <div className="text-xs text-blue-700 flex items-center justify-between gap-2">
+                <span className="truncate">
+                  Posting in: <strong>{selectedGroup?.name || 'Selected group'}</strong>
+                </span>
                 <button
                   type="button"
                   onClick={() => setSelectedGroupId(null)}
-                  className="underline"
+                  className="underline shrink-0"
                 >
                   All Groups
                 </button>
@@ -256,6 +306,7 @@ export function ConnectPage() {
             {!user ? (
               <Link
                 to="/auth/login"
+                state={{ from: location.pathname }}
                 className="inline-block px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg"
               >
                 {t.nav.signIn}
@@ -359,11 +410,18 @@ export function ConnectPage() {
                       type="button"
                       disabled={!user}
                       onClick={async () => {
-                        await apiRequest(`/community/posts/${post.id}/react`, {
-                          method: 'POST',
-                          body: JSON.stringify({ reactionType: 'helpful' }),
-                        });
-                        await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+                        setActionError(null);
+                        try {
+                          await apiRequest(`/community/posts/${post.id}/react`, {
+                            method: 'POST',
+                            body: JSON.stringify({ reactionType: 'helpful' }),
+                          });
+                          await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+                        } catch (err) {
+                          setActionError(
+                            err instanceof ApiError ? err.message : 'Unable to update reaction',
+                          );
+                        }
                       }}
                       className="inline-flex items-center gap-1.5 text-slate-600 hover:text-blue-600 font-medium"
                     >
@@ -397,15 +455,22 @@ export function ConnectPage() {
                           onSubmit={async (e) => {
                             e.preventDefault();
                             if (!commentText.trim()) return;
-                            await apiRequest(`/community/posts/${post.id}/comments`, {
-                              method: 'POST',
-                              body: JSON.stringify({ body: commentText }),
-                            });
-                            setCommentText('');
-                            await queryClient.invalidateQueries({
-                              queryKey: ['community', 'comments', post.id],
-                            });
-                            await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+                            setActionError(null);
+                            try {
+                              await apiRequest(`/community/posts/${post.id}/comments`, {
+                                method: 'POST',
+                                body: JSON.stringify({ body: commentText }),
+                              });
+                              setCommentText('');
+                              await queryClient.invalidateQueries({
+                                queryKey: ['community', 'comments', post.id],
+                              });
+                              await queryClient.invalidateQueries({ queryKey: ['community', 'posts'] });
+                            } catch (err) {
+                              setActionError(
+                                err instanceof ApiError ? err.message : 'Unable to post comment',
+                              );
+                            }
                           }}
                           className="flex items-center gap-2"
                         >

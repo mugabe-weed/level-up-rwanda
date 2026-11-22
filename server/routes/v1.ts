@@ -3,6 +3,7 @@ import {
   adminCreateAnnouncementSchema,
   adminCreateChallengeSchema,
   adminCreateCourseSchema,
+  adminCreateLessonSchema,
   adminCreateQuestionSchema,
   bootstrapAdminSchema,
   challengeSubmissionSchema,
@@ -33,6 +34,7 @@ import {
   uploadRateLimiter,
 } from '../middleware/security.ts';
 import {
+  addLessonAdmin,
   addQuestionAdmin,
   createAnnouncementAdmin,
   createChallengeAdmin,
@@ -40,6 +42,7 @@ import {
   createOrganizationAdmin,
   getAdminOverview,
   listAllChallengesAdmin,
+  listAllCoursesAdmin,
   listAllOpportunitiesAdmin,
   listAnnouncementsAdmin,
   listAuditLogsAdmin,
@@ -228,12 +231,10 @@ export function createV1Router(): Router {
     optionalAuth,
     asyncHandler(async (req, res) => {
       let superAdminExists = false;
-      if (isDatabaseConfigured()) {
-        try {
-          superAdminExists = await hasAnySuperAdmin();
-        } catch {
-          superAdminExists = false;
-        }
+      try {
+        superAdminExists = await hasAnySuperAdmin();
+      } catch {
+        superAdminExists = false;
       }
       res.json({
         ok: true,
@@ -919,12 +920,31 @@ export function createV1Router(): Router {
     }),
   );
 
+  adminRouter.get(
+    '/courses',
+    requireRole('educator', 'admin', 'super_admin'),
+    asyncHandler(async (_req, res) => {
+      const rows = await listAllCoursesAdmin();
+      res.json({ ok: true, data: rows });
+    }),
+  );
+
   adminRouter.post(
     '/courses',
     requireRole('educator', 'admin', 'super_admin'),
     asyncHandler(async (req, res) => {
       const parsed = adminCreateCourseSchema.parse(req.body);
       const created = await createCourseAdmin(req.user!.id, parsed, req.ip);
+      res.status(201).json({ ok: true, data: created });
+    }),
+  );
+
+  adminRouter.post(
+    '/courses/lessons',
+    requireRole('educator', 'admin', 'super_admin'),
+    asyncHandler(async (req, res) => {
+      const parsed = adminCreateLessonSchema.parse(req.body);
+      const created = await addLessonAdmin(req.user!.id, parsed, req.ip);
       res.status(201).json({ ok: true, data: created });
     }),
   );

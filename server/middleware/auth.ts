@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { RowDataPacket } from 'mysql2/promise';
 import { AgeGroup, SupportedLanguage, UserRole } from '../../shared/schemas.ts';
 import { isDatabaseConfigured, queryRows } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
 import { sha256Hex } from '../utils/crypto.ts';
 import { ForbiddenError, UnauthorizedError } from '../utils/errors.ts';
 import { SESSION_COOKIE_NAME } from './security.ts';
@@ -37,7 +38,7 @@ export async function resolveSessionUser(token: string): Promise<{
   sessionId: number;
 } | null> {
   if (!isDatabaseConfigured()) {
-    return null;
+    return localStore.resolveSessionUser(token);
   }
 
   const tokenHash = sha256Hex(token);

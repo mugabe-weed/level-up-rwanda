@@ -276,9 +276,9 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         categorySlug: 'digital-literacy-coding',
         slug: 'sample-digital-safety-rwanda-daily',
-        titleEn: '[Sample] Daily Challenge: Safe Digital Citizen in Rwanda',
-        titleRw: '[Urugero] Irushanwa ry’Umunsi: Umutekano kuri Murandasi',
-        titleFr: '[Exemple] Défi du Jour : Citoyen Numérique Sûr',
+        titleEn: 'Daily Challenge: Safe Digital Citizen in Rwanda',
+        titleRw: 'Irushanwa ry’Umunsi: Umutekano kuri Murandasi',
+        titleFr: 'Défi du Jour : Citoyen Numérique Sûr',
         descriptionEn:
           'Test practical habits for protecting mobile money accounts, personal passwords, and avoiding phishing links.',
         descriptionRw:
@@ -344,9 +344,9 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         categorySlug: 'rwanda-heritage-civics',
         slug: 'sample-rwanda-geography-innovation',
-        titleEn: '[Sample] Rwanda Geography & Innovation Sprint',
-        titleRw: '[Urugero] Ubumenyi bw’Isi n’Udushya mu Rwanda',
-        titleFr: '[Exemple] Géographie et Innovation au Rwanda',
+        titleEn: 'Rwanda Geography & Innovation Sprint',
+        titleRw: 'Ubumenyi bw’Isi n’Udushya mu Rwanda',
+        titleFr: 'Géographie et Innovation au Rwanda',
         descriptionEn:
           'Explore Rwanda’s provinces, natural landmarks, and technology ecosystem milestones.',
         descriptionRw:
@@ -386,9 +386,9 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         categorySlug: 'entrepreneurship-finance',
         slug: 'sample-small-business-budgeting',
-        titleEn: '[Sample] Entrepreneurship & Cashflow Basics',
-        titleRw: '[Urugero] Ibanze mu Gucunga Umushinga n’Imari',
-        titleFr: '[Exemple] Bases de Gestion et Trésorerie',
+        titleEn: 'Entrepreneurship & Cashflow Basics',
+        titleRw: 'Ibanze mu Gucunga Umushinga n’Imari',
+        titleFr: 'Bases de Gestion et Trésorerie',
         descriptionEn:
           'Practice profit margin, separating personal and business funds, and savings habits.',
         descriptionRw:
@@ -445,7 +445,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       const [res] = await conn.execute<any>(
         `INSERT INTO challenges
           (category_id, slug, title_en, title_rw, title_fr, description_en, description_rw, description_fr, difficulty, challenge_type, time_limit_seconds, xp_reward, active_date, is_featured, status, is_sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, 'published', 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, 'published', 0)`,
         [
           catId,
           ch.slug,
@@ -498,9 +498,9 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         categorySlug: 'digital-skills',
         slug: 'sample-practical-web-foundations',
-        titleEn: '[Sample] Practical Web & Digital Foundations',
-        titleRw: '[Urugero] Ibanze mu Gukora Imbuga za Murandasi',
-        titleFr: '[Exemple] Fondamentaux du Web Pratique',
+        titleEn: 'Practical Web & Digital Foundations',
+        titleRw: 'Ibanze mu Gukora Imbuga za Murandasi',
+        titleFr: 'Fondamentaux du Web Pratique',
         summaryEn:
           'Learn how websites work, structure accessible HTML pages, and apply responsive layouts for low-bandwidth devices.',
         summaryRw:
@@ -569,9 +569,9 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         categorySlug: 'career-readiness',
         slug: 'sample-career-cv-interview-rwanda',
-        titleEn: '[Sample] Writing a Standout CV & Preparing for Interviews',
-        titleRw: '[Urugero] Kwandika Umwirondoro (CV) no Kwitegura Ikiganiro cy’Akazi',
-        titleFr: '[Exemple] Rédiger un CV Efficace et Réussir ses Entretiens',
+        titleEn: 'Writing a Standout CV & Preparing for Interviews',
+        titleRw: 'Kwandika Umwirondoro (CV) no Kwitegura Ikiganiro cy’Akazi',
+        titleFr: 'Rédiger un CV Efficace et Réussir ses Entretiens',
         summaryEn:
           'Step-by-step guidance for students and job seekers in Rwanda to present achievements clearly to local and remote employers.',
         summaryRw:
@@ -629,7 +629,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       const [cRes] = await conn.execute<any>(
         `INSERT INTO courses
           (category_id, slug, title_en, title_rw, title_fr, summary_en, summary_rw, summary_fr, level, estimated_minutes, xp_reward, status, is_sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 0)`,
         [
           catId,
           course.slug,
@@ -685,13 +685,13 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
     const sampleGroups = [
       [
         'kigali-digital-builders',
-        'Kigali Digital Builders [Sample]',
+        'Kigali Digital Builders',
         'A friendly space for learners practicing coding, UI design, and digital problem-solving across Rwanda.',
         'Technology',
       ],
       [
         'rwanda-youth-entrepreneurs',
-        'Rwanda Youth Entrepreneurs [Sample]',
+        'Rwanda Youth Entrepreneurs',
         'Share small business ideas, market insights, and cooperative growth lessons.',
         'Entrepreneurship',
       ],
@@ -700,7 +700,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
     for (const [slug, name, desc, category] of sampleGroups) {
       await conn.execute(
         `INSERT IGNORE INTO community_groups (slug, name, description, category, is_private, member_count, status, is_sample)
-         VALUES (?, ?, ?, ?, 0, 0, 'active', 1)`,
+         VALUES (?, ?, ?, ?, 0, 0, 'active', 0)`,
         [slug, name, desc, category],
       );
     }
@@ -716,7 +716,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         catSlug: 'scholarships',
         type: 'scholarship',
-        title: '[Sample] Rwanda Digital Talent Scholarship 2027',
+        title: 'Rwanda Digital Talent Scholarship 2027',
         org: 'Kigali Innovation Academy',
         location: 'Kigali, Rwanda',
         isRemote: 0,
@@ -730,7 +730,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         catSlug: 'internships',
         type: 'internship',
-        title: '[Sample] Junior Product & Web Support Internship',
+        title: 'Junior Product & Web Support Internship',
         org: 'Norrsken East Africa Partner Hub',
         location: 'Kigali, Rwanda',
         isRemote: 0,
@@ -744,7 +744,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         catSlug: 'jobs-remote',
         type: 'remote_job',
-        title: '[Sample] Remote Junior Data Operations Associate',
+        title: 'Remote Junior Data Operations Associate',
         org: 'East Africa Analytics Collective',
         location: 'Remote (East Africa)',
         isRemote: 1,
@@ -758,7 +758,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       {
         catSlug: 'grants-impact',
         type: 'grant',
-        title: '[Sample] Community Green Innovation Micro-Grant',
+        title: 'Community Green Innovation Micro-Grant',
         org: 'Rwanda Civic Makers Fund',
         location: 'All Districts, Rwanda',
         isRemote: 0,
@@ -784,7 +784,7 @@ export async function runSeeds(): Promise<{ seededSections: string[] }> {
       await conn.execute(
         `INSERT INTO opportunities
           (category_id, opportunity_type, title, organization_name, location, is_remote, summary, eligibility, application_url, deadline_at, approval_status, verified_status, is_featured, is_sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), 'approved', 'verified', ?, 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), 'approved', 'verified', ?, 0)`,
         [
           catId,
           opp.type,

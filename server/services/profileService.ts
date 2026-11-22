@@ -1,6 +1,7 @@
 import { RowDataPacket } from 'mysql2/promise';
 import { SupportedLanguage } from '../../shared/schemas.ts';
-import { queryRows, withTransaction } from '../db/pool.ts';
+import { localStore } from '../db/localStore.ts';
+import { isDatabaseConfigured, queryRows, withTransaction } from '../db/pool.ts';
 import { ForbiddenError, NotFoundError } from '../utils/errors.ts';
 import { xpRangeForLevel } from './gamificationService.ts';
 
@@ -18,6 +19,9 @@ function parseJsonArray(val: unknown): string[] {
 }
 
 export async function getUserProfileByUsername(username: string, viewerUserId?: number) {
+  if (!isDatabaseConfigured()) {
+    return localStore.getUserProfileByUsername(username, viewerUserId, xpRangeForLevel);
+  }
   const rows = await queryRows<RowDataPacket[]>(
     `SELECT
        u.id, u.role, u.status, u.age_group, u.preferred_language, u.contact_verified, u.created_at,
@@ -183,6 +187,9 @@ export async function updateOwnProfile(
     preferredLanguage?: SupportedLanguage;
   },
 ) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateOwnProfile(userId, data);
+  }
   await withTransaction(async (conn) => {
     await conn.execute(
       `UPDATE user_profiles
@@ -214,9 +221,15 @@ export async function updateOwnProfile(
 }
 
 export async function updateUserAvatar(userId: number, avatarUrl: string) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateUserAvatar(userId, avatarUrl);
+  }
   await queryRows('UPDATE user_profiles SET avatar_url = ? WHERE user_id = ?', [avatarUrl, userId]);
 }
 
 export async function updateUserLanguage(userId: number, language: SupportedLanguage) {
+  if (!isDatabaseConfigured()) {
+    return localStore.updateUserLanguage(userId, language);
+  }
   await queryRows('UPDATE users SET preferred_language = ? WHERE id = ?', [language, userId]);
 }

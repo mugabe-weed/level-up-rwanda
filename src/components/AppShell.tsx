@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Award,
@@ -22,19 +22,19 @@ import { SUPPORTED_LANGUAGES, SupportedLanguage } from '../../shared/schemas';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/translations';
 import { apiRequest } from '../lib/api';
-import { DatabaseNoticeBanner } from './DatabaseNoticeBanner';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, databaseConfigured, logout, changeLanguage } = useAuth();
+  const { user, logout, changeLanguage } = useAuth();
   const { lang, t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications', 'count'],
     queryFn: () => apiRequest<{ unreadCount: number }>('/notifications'),
-    enabled: Boolean(user && databaseConfigured),
+    enabled: Boolean(user),
   });
 
   const unreadCount = notifData?.unreadCount ?? 0;
@@ -273,6 +273,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2">
                 <Link
                   to="/auth/login"
+                  state={{ from: location.pathname }}
                   className="px-3 py-2 text-sm font-medium text-slate-700 hover:text-[#0B1B3B] whitespace-nowrap shrink-0"
                 >
                   {t.nav.signIn}
@@ -376,7 +377,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main Viewport */}
         <main id="main-content" className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-          {!databaseConfigured && <DatabaseNoticeBanner />}
           {children}
         </main>
 

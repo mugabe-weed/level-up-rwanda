@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,7 @@ import { ApiError, apiRequest, queryClient } from '../lib/api';
 
 export function ChallengePlayPage() {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const { user, refreshAuth } = useAuth();
   const { lang, t } = useI18n();
 
@@ -136,10 +137,17 @@ export function ChallengePlayPage() {
           <span>{t.common.signInRequired}</span>
           <Link
             to="/auth/login"
+            state={{ from: location.pathname }}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold"
           >
             {t.nav.signIn}
           </Link>
+        </div>
+      )}
+
+      {user && !userSubmission && !activeResult && secondsLeft === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          Recommended time elapsed. You can still review and submit your answers below.
         </div>
       )}
 

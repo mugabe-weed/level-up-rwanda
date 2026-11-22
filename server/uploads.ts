@@ -6,6 +6,7 @@ import path from 'path';
 import { Readable } from 'stream';
 import { appConfig, UploadStorageDriver } from './config.ts';
 import { isDatabaseConfigured, queryRows } from './db/pool.ts';
+import { localStore } from './db/localStore.ts';
 import { UserRole } from '../shared/schemas.ts';
 import { ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from './utils/errors.ts';
 
@@ -324,7 +325,7 @@ export async function authorizeMediaAccess(input: {
   viewerRole?: UserRole;
 }): Promise<{ visibility: MediaVisibility }> {
   if (!isDatabaseConfigured()) {
-    return { visibility: 'public' };
+    return localStore.authorizeMediaAccess(input);
   }
 
   const canonicalUrl = `/api/v1/media/${input.folder}/${input.filename}`;

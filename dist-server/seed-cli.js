@@ -450,9 +450,9 @@ async function runSeeds() {
       {
         categorySlug: "digital-literacy-coding",
         slug: "sample-digital-safety-rwanda-daily",
-        titleEn: "[Sample] Daily Challenge: Safe Digital Citizen in Rwanda",
-        titleRw: "[Urugero] Irushanwa ry\u2019Umunsi: Umutekano kuri Murandasi",
-        titleFr: "[Exemple] D\xE9fi du Jour : Citoyen Num\xE9rique S\xFBr",
+        titleEn: "Daily Challenge: Safe Digital Citizen in Rwanda",
+        titleRw: "Irushanwa ry\u2019Umunsi: Umutekano kuri Murandasi",
+        titleFr: "D\xE9fi du Jour : Citoyen Num\xE9rique S\xFBr",
         descriptionEn: "Test practical habits for protecting mobile money accounts, personal passwords, and avoiding phishing links.",
         descriptionRw: "Gerageza ubumenyi bwo kurinda konti ya Mobile Money, ijambobanga n\u2019uburiganya kuri murandasi.",
         descriptionFr: "Testez vos r\xE9flexes pour prot\xE9ger vos comptes mobiles et mots de passe.",
@@ -515,9 +515,9 @@ async function runSeeds() {
       {
         categorySlug: "rwanda-heritage-civics",
         slug: "sample-rwanda-geography-innovation",
-        titleEn: "[Sample] Rwanda Geography & Innovation Sprint",
-        titleRw: "[Urugero] Ubumenyi bw\u2019Isi n\u2019Udushya mu Rwanda",
-        titleFr: "[Exemple] G\xE9ographie et Innovation au Rwanda",
+        titleEn: "Rwanda Geography & Innovation Sprint",
+        titleRw: "Ubumenyi bw\u2019Isi n\u2019Udushya mu Rwanda",
+        titleFr: "G\xE9ographie et Innovation au Rwanda",
         descriptionEn: "Explore Rwanda\u2019s provinces, natural landmarks, and technology ecosystem milestones.",
         descriptionRw: "Menya intara z\u2019u Rwanda, ibyiza nyaburanga n\u2019iterambere mu ikoranabuhanga.",
         descriptionFr: "D\xE9couvrez les provinces du Rwanda, ses sites naturels et son essor technologique.",
@@ -554,9 +554,9 @@ async function runSeeds() {
       {
         categorySlug: "entrepreneurship-finance",
         slug: "sample-small-business-budgeting",
-        titleEn: "[Sample] Entrepreneurship & Cashflow Basics",
-        titleRw: "[Urugero] Ibanze mu Gucunga Umushinga n\u2019Imari",
-        titleFr: "[Exemple] Bases de Gestion et Tr\xE9sorerie",
+        titleEn: "Entrepreneurship & Cashflow Basics",
+        titleRw: "Ibanze mu Gucunga Umushinga n\u2019Imari",
+        titleFr: "Bases de Gestion et Tr\xE9sorerie",
         descriptionEn: "Practice profit margin, separating personal and business funds, and savings habits.",
         descriptionRw: "Imenyereze kubara inyungu, gutandukanya amafaranga y\u2019umushinga n\u2019ayawe bwite no kwizigamira.",
         descriptionFr: "Ma\xEEtrisez la marge, la s\xE9paration des comptes et l\u2019\xE9pargne d\u2019entreprise.",
@@ -607,7 +607,7 @@ async function runSeeds() {
       const [res] = await conn.execute(
         `INSERT INTO challenges
           (category_id, slug, title_en, title_rw, title_fr, description_en, description_rw, description_fr, difficulty, challenge_type, time_limit_seconds, xp_reward, active_date, is_featured, status, is_sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, 'published', 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, 'published', 0)`,
         [
           catId,
           ch.slug,
@@ -656,9 +656,9 @@ async function runSeeds() {
       {
         categorySlug: "digital-skills",
         slug: "sample-practical-web-foundations",
-        titleEn: "[Sample] Practical Web & Digital Foundations",
-        titleRw: "[Urugero] Ibanze mu Gukora Imbuga za Murandasi",
-        titleFr: "[Exemple] Fondamentaux du Web Pratique",
+        titleEn: "Practical Web & Digital Foundations",
+        titleRw: "Ibanze mu Gukora Imbuga za Murandasi",
+        titleFr: "Fondamentaux du Web Pratique",
         summaryEn: "Learn how websites work, structure accessible HTML pages, and apply responsive layouts for low-bandwidth devices.",
         summaryRw: "Wige uko imbuga za murandasi zikora, uko zitegurwa neza ku bakoresha bose n\u2019uko zigenda neza kuri telefoni.",
         summaryFr: "Comprenez le fonctionnement du web et cr\xE9ez des pages rapides et accessibles.",
@@ -718,9 +718,9 @@ async function runSeeds() {
       {
         categorySlug: "career-readiness",
         slug: "sample-career-cv-interview-rwanda",
-        titleEn: "[Sample] Writing a Standout CV & Preparing for Interviews",
-        titleRw: "[Urugero] Kwandika Umwirondoro (CV) no Kwitegura Ikiganiro cy\u2019Akazi",
-        titleFr: "[Exemple] R\xE9diger un CV Efficace et R\xE9ussir ses Entretiens",
+        titleEn: "Writing a Standout CV & Preparing for Interviews",
+        titleRw: "Kwandika Umwirondoro (CV) no Kwitegura Ikiganiro cy\u2019Akazi",
+        titleFr: "R\xE9diger un CV Efficace et R\xE9ussir ses Entretiens",
         summaryEn: "Step-by-step guidance for students and job seekers in Rwanda to present achievements clearly to local and remote employers.",
         summaryRw: "Inama ngiro zifasha abanyeshuri n\u2019abashaka akazi mu Rwanda kugaragaza ubushobozi bwabo neza.",
         summaryFr: "Guide pratique pour valoriser vos comp\xE9tences aupr\xE8s des recruteurs locaux et internationaux.",
@@ -769,7 +769,7 @@ async function runSeeds() {
       const [cRes] = await conn.execute(
         `INSERT INTO courses
           (category_id, slug, title_en, title_rw, title_fr, summary_en, summary_rw, summary_fr, level, estimated_minutes, xp_reward, status, is_sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 0)`,
         [
           catId,
           course.slug,
@@ -821,13 +821,13 @@ async function runSeeds() {
     const sampleGroups = [
       [
         "kigali-digital-builders",
-        "Kigali Digital Builders [Sample]",
+        "Kigali Digital Builders",
         "A friendly space for learners practicing coding, UI design, and digital problem-solving across Rwanda.",
         "Technology"
       ],
       [
         "rwanda-youth-entrepreneurs",
-        "Rwanda Youth Entrepreneurs [Sample]",
+        "Rwanda Youth Entrepreneurs",
         "Share small business ideas, market insights, and cooperative growth lessons.",
         "Entrepreneurship"
       ]
@@ -835,7 +835,7 @@ async function runSeeds() {
     for (const [slug, name, desc, category] of sampleGroups) {
       await conn.execute(
         `INSERT IGNORE INTO community_groups (slug, name, description, category, is_private, member_count, status, is_sample)
-         VALUES (?, ?, ?, ?, 0, 0, 'active', 1)`,
+         VALUES (?, ?, ?, ?, 0, 0, 'active', 0)`,
         [slug, name, desc, category]
       );
     }
@@ -848,7 +848,7 @@ async function runSeeds() {
       {
         catSlug: "scholarships",
         type: "scholarship",
-        title: "[Sample] Rwanda Digital Talent Scholarship 2027",
+        title: "Rwanda Digital Talent Scholarship 2027",
         org: "Kigali Innovation Academy",
         location: "Kigali, Rwanda",
         isRemote: 0,
@@ -861,7 +861,7 @@ async function runSeeds() {
       {
         catSlug: "internships",
         type: "internship",
-        title: "[Sample] Junior Product & Web Support Internship",
+        title: "Junior Product & Web Support Internship",
         org: "Norrsken East Africa Partner Hub",
         location: "Kigali, Rwanda",
         isRemote: 0,
@@ -874,7 +874,7 @@ async function runSeeds() {
       {
         catSlug: "jobs-remote",
         type: "remote_job",
-        title: "[Sample] Remote Junior Data Operations Associate",
+        title: "Remote Junior Data Operations Associate",
         org: "East Africa Analytics Collective",
         location: "Remote (East Africa)",
         isRemote: 1,
@@ -887,7 +887,7 @@ async function runSeeds() {
       {
         catSlug: "grants-impact",
         type: "grant",
-        title: "[Sample] Community Green Innovation Micro-Grant",
+        title: "Community Green Innovation Micro-Grant",
         org: "Rwanda Civic Makers Fund",
         location: "All Districts, Rwanda",
         isRemote: 0,
@@ -909,7 +909,7 @@ async function runSeeds() {
       await conn.execute(
         `INSERT INTO opportunities
           (category_id, opportunity_type, title, organization_name, location, is_remote, summary, eligibility, application_url, deadline_at, approval_status, verified_status, is_featured, is_sample)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), 'approved', 'verified', ?, 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? DAY), 'approved', 'verified', ?, 0)`,
         [
           catId,
           opp.type,
